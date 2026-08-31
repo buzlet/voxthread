@@ -1,7 +1,7 @@
 <!-- README.md -->
-# Telegram Web Reader
+# VoxThread
 
-A userscript-first reader for Telegram Web on Android. The goal is continuous, human-friendly TTS playback of chat messages with per-author voices and minimal spoken UI/service noise.
+VoxThread is a userscript-first reader for Telegram Web on Android. The goal is continuous, human-friendly TTS playback of chat and group messages with per-author voices and minimal spoken UI/service noise.
 
 ## Current target
 
