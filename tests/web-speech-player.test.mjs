@@ -163,3 +163,74 @@ test('ordinary pause and resume does not restart the current utterance', () => {
   assert.equal(synth.spoken.length, 1);
   assert.equal(synth.paused, false);
 });
+
+test('long segment is chunked without advancing the queue early', () => {
+  const queue = new PlaybackQueue();
+  const longText = [
+    'Первое длинное предложение предназначено для проверки.',
+    'Второе длинное предложение остается в том же сообщении.',
+    'Третье длинное предложение завершает этот фрагмент.',
+  ].join(' ');
+
+  queue.load([
+    { ...segments[0], text: longText },
+    segments[1],
+  ]);
+
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+    maxUtteranceChars: 80,
+  });
+
+  player.play();
+
+  assert.ok(player.chunkCount > 1);
+  assert.equal(queue.index, 0);
+  assert.ok(synth.spoken[0].text.length <= 80);
+
+  while (queue.index === 0) {
+    synth.spoken.at(-1).onend();
+  }
+
+  assert.equal(queue.index, 1);
+  assert.equal(synth.spoken.at(-1).text, 'Боб. Пока');
+});
+
+test('speech error retries the same chunk instead of restarting the segment', () => {
+  const queue = new PlaybackQueue();
+  const longText = [
+    'Первое длинное предложение предназначено для проверки.',
+    'Второе длинное предложение остается в том же сообщении.',
+    'Третье длинное предложение завершает этот фрагмент.',
+  ].join(' ');
+
+  queue.load([{ ...segments[0], text: longText }]);
+
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+    maxUtteranceChars: 80,
+  });
+
+  player.play();
+  synth.spoken[0].onend();
+
+  const failedText = synth.spoken.at(-1).text;
+  const failedChunk = player.chunkIndex;
+
+  synth.spoken.at(-1).onerror({ error: 'interrupted' });
+
+  assert.equal(queue.status, 'paused');
+  assert.equal(player.chunkIndex, failedChunk);
+
+  player.resume();
+
+  assert.equal(queue.status, 'playing');
+  assert.equal(player.chunkIndex, failedChunk);
+  assert.equal(synth.spoken.at(-1).text, failedText);
+});
