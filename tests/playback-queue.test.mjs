@@ -81,3 +81,19 @@ test('emits immutable snapshots', () => {
   assert.equal(Object.isFrozen(seen[0]), true);
   assert.equal(seen[1].status, 'playing');
 });
+
+test('append extends an active queue and resumes after completion point', () => {
+  const q = new PlaybackQueue();
+  q.load(segments.slice(0, 1));
+  q.play();
+  q.advance();
+
+  assert.equal(q.status, 'completed');
+
+  q.append(segments.slice(1));
+
+  assert.equal(q.status, 'ready');
+  assert.equal(q.index, 1);
+  assert.equal(q.length, 3);
+  assert.equal(q.current.text, 'two three');
+});

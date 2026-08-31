@@ -54,6 +54,24 @@ export class PlaybackQueue {
     return this.#emit();
   }
 
+  append(segments) {
+    const items = [...segments];
+    if (!items.length) return this.#emit();
+
+    const oldLength = this.#segments.length;
+    this.#segments.push(...items);
+
+    if (oldLength === 0) {
+      this.#index = 0;
+      this.#status = 'ready';
+    } else if (this.#status === 'completed') {
+      this.#index = oldLength;
+      this.#status = 'ready';
+    }
+
+    return this.#emit();
+  }
+
   play() {
     if (!this.#segments.length) return this.#emit();
     if (this.#status === 'completed') this.#index = 0;

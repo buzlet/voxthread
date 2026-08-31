@@ -23,7 +23,7 @@ export class TelegramMessageObserver {
     this.onMessages = typeof onMessages === 'function' ? onMessages : null;
   }
 
-  scan() {
+  scan({ emit = true } = {}) {
     const bubbles = [...this.root.querySelectorAll('.bubble[data-mid]')];
     const messages = extractTelegramBubbles(bubbles);
     const fresh = [];
@@ -35,14 +35,14 @@ export class TelegramMessageObserver {
       fresh.push(message);
     }
 
-    if (fresh.length) this.onMessages?.(fresh);
+    if (emit && fresh.length) this.onMessages?.(fresh);
     return fresh;
   }
 
-  start() {
+  start({ emitInitial = true } = {}) {
     if (this.#observer) return this.scan();
 
-    const initial = this.scan();
+    const initial = this.scan({ emit: emitInitial });
     this.#observer = new this.MutationObserverCtor(() => this.scan());
     this.#observer.observe(this.root, {
       childList: true,

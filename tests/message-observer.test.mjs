@@ -105,3 +105,25 @@ test('scrollTowardOlder moves upward by viewport fraction', () => {
   });
   assert.equal(calls[0].top, 800);
 });
+
+test('can prime current DOM without emitting initial messages', () => {
+  const nodes = [bubble('10', 'ten')];
+  const batches = [];
+  const root = { querySelectorAll: () => nodes };
+
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    onMessages: messages => batches.push(messages.map(x => x.id)),
+  });
+
+  observer.start({ emitInitial: false });
+
+  assert.deepEqual(batches, []);
+  assert.equal(observer.seenCount, 1);
+
+  nodes.push(bubble('11', 'eleven'));
+  FakeMutationObserver.latest.trigger();
+
+  assert.deepEqual(batches, [['11']]);
+});
