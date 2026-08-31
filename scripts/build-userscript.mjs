@@ -2,6 +2,8 @@
 import * as esbuild from 'esbuild';
 import fs from 'node:fs/promises';
 
+const pkg = JSON.parse(await fs.readFile('package.json', 'utf8'));
+
 const revisionArg = process.argv.find(arg => arg.startsWith('--revision='));
 const revision = revisionArg?.slice('--revision='.length) || '005';
 const outfile = `dist/voxthread-${revision}.user.js`;
@@ -9,7 +11,7 @@ const outfile = `dist/voxthread-${revision}.user.js`;
 const metadata = `// ==UserScript==
 // @name         VoxThread
 // @namespace    https://github.com/buzlet/voxthread
-// @version      0.5.0
+// @version      ${pkg.version}
 // @description  Read Telegram Web conversations aloud.
 // @match        https://web.telegram.org/k/*
 // @run-at       document-idle
@@ -26,6 +28,9 @@ await esbuild.build({
   platform: 'browser',
   target: ['chrome120'],
   banner: { js: metadata },
+  define: {
+    __VOXTHREAD_VERSION__: JSON.stringify(pkg.version),
+  },
   legalComments: 'none',
   sourcemap: false,
 });

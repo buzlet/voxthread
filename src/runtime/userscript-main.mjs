@@ -9,7 +9,7 @@ import {
   prosodyForAuthor,
 } from '../tts/voice-map.mjs';
 
-const VERSION = '0.5.0';
+const VERSION = __VOXTHREAD_VERSION__;
 const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
 const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
