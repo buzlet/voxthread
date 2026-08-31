@@ -1,5 +1,6 @@
 // src/runtime/userscript-main.mjs
 import { extractTelegramBubbles } from '../telegram/dom-adapter.mjs';
+import { TelegramMessageObserver } from '../telegram/message-observer.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
@@ -19,6 +20,9 @@ let selectedMessageId = null;
 let selectedBubble = null;
 let statusElement = null;
 let pauseButton = null;
+let messageObserver = null;
+let latestQueuedTimestamp = null;
+let liveFollow = false;
 
 const queue = new PlaybackQueue(() => renderStatus());
 
@@ -52,10 +56,14 @@ function isVisible(element) {
   return element.offsetParent !== null && rect.width > 0 && rect.height > 0;
 }
 
+function activeChatRoot() {
+  return document.querySelector('.chat.tabs-tab.active') || document;
+}
+
 function renderedBubbles() {
-  const activeChat = document.querySelector('.chat.tabs-tab.active');
-  const root = activeChat || document;
-  return [...root.querySelectorAll('.bubble[data-mid]')].filter(isVisible);
+  return [
+    ...activeChatRoot().querySelectorAll('.bubble[data-mid]'),
+  ].filter(isVisible);
 }
 
 function buildQueue() {
@@ -68,6 +76,14 @@ function buildQueue() {
   queue.load(segments, {
     startMessageId: selectedMessageId,
   });
+
+  latestQueuedTimestamp = messages.reduce(
+    (latest, message) =>
+      message.timestamp === null
+        ? latest
+        : Math.max(latest ?? message.timestamp, message.timestamp),
+    null,
+  );
 
   return {
     messages: messages.length,
@@ -135,12 +151,57 @@ function makeButton(label, handler) {
   return button;
 }
 
+function handleNewMessages(messages) {
+  const forward = messages.filter(message =>
+    latestQueuedTimestamp === null
+    || message.timestamp === null
+    || message.timestamp >= latestQueuedTimestamp
+  );
+
+  if (!forward.length) return;
+
+  const segments = planSpeech(forward, {
+    mergeAdjacent: true,
+    announceAuthors: true,
+  });
+
+  if (!segments.length) return;
+
+  const wasCompleted = queue.status === 'completed';
+  queue.append(segments);
+
+  for (const message of forward) {
+    if (message.timestamp !== null) {
+      latestQueuedTimestamp = Math.max(
+        latestQueuedTimestamp ?? message.timestamp,
+        message.timestamp,
+      );
+    }
+  }
+
+  if (liveFollow && wasCompleted) player.play();
+}
+
+function startMessageObserver() {
+  messageObserver?.stop();
+
+  messageObserver = new TelegramMessageObserver({
+    root: activeChatRoot(),
+    onMessages: handleNewMessages,
+  });
+
+  messageObserver.start({ emitInitial: false });
+}
+
 function playFromSelection() {
   const result = buildQueue();
   if (!result.segments) {
     renderStatus();
     return;
   }
+
+  liveFollow = true;
+  startMessageObserver();
   player.play();
 }
 
@@ -191,7 +252,11 @@ function createPanel() {
   pauseButton = makeButton('Pause', togglePause);
   const previous = makeButton('Prev', () => player.previous());
   const next = makeButton('Next', () => player.next());
-  const stop = makeButton('Stop', () => player.stop());
+  const stop = makeButton('Stop', () => {
+    liveFollow = false;
+    messageObserver?.stop();
+    player.stop();
+  });
 
   panel.append(statusElement, pick, play, pauseButton, previous, next, stop);
   document.body.append(panel);
@@ -199,7 +264,11 @@ function createPanel() {
 }
 
 document.addEventListener('click', onDocumentClick, true);
-window.addEventListener('pagehide', () => player.stop(), { once: true });
+window.addEventListener('pagehide', () => {
+  liveFollow = false;
+  messageObserver?.stop();
+  player.stop();
+}, { once: true });
 
 window.__voxThreadApp = {
   version: VERSION,
