@@ -35,6 +35,8 @@ let pauseButton = null;
 let controlsElement = null;
 let settingsElement = null;
 let collapseButton = null;
+let voiceSettingsElement = null;
+let lastBuiltSegments = [];
 let messageObserver = null;
 let latestQueuedTimestamp = null;
 let liveFollow = false;
@@ -70,6 +72,90 @@ const player = new WebSpeechPlayer({
   voiceResolver,
   prosodyResolver: segment => prosodyForAuthor(segment.authorKey),
 });
+
+
+function setVoiceOverride(authorKey, voiceURI) {
+  if (!voiceURI) delete voiceOverrides[authorKey];
+  else voiceOverrides[authorKey] = String(voiceURI);
+
+  localStorage.setItem(
+    VOICE_OVERRIDES_KEY,
+    JSON.stringify(voiceOverrides),
+  );
+  renderVoiceSettings();
+}
+
+function primaryLanguage(value) {
+  return String(value ?? '').toLowerCase().split(/[-_]/)[0] || null;
+}
+
+function compatibleVoicesForSegment(segment, voices) {
+  const language = primaryLanguage(inferLanguageHint(segment?.text));
+  if (!language) return voices;
+
+  const compatible = voices.filter(voice =>
+    primaryLanguage(voice.lang) === language
+  );
+
+  return compatible.length ? compatible : voices;
+}
+
+function renderVoiceSettings() {
+  if (!voiceSettingsElement) return;
+
+  voiceSettingsElement.replaceChildren();
+  const voices = window.speechSynthesis.getVoices();
+
+  const summary = document.createElement('div');
+  summary.style.cssText = 'padding:4px 1px;font-weight:600';
+  summary.textContent = voices.length
+    ? `Voices: ${voices.length}`
+    : 'Voices: browser list unavailable; using rate/pitch fallback';
+  voiceSettingsElement.append(summary);
+
+  if (!voices.length || !lastBuiltSegments.length) return;
+
+  const authors = new Map();
+  for (const segment of lastBuiltSegments) {
+    if (!authors.has(segment.authorKey)) authors.set(segment.authorKey, segment);
+  }
+
+  for (const [authorKey, segment] of authors) {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;padding:3px 1px';
+
+    const name = document.createElement('span');
+    name.style.cssText = 'flex:1;min-width:70px;overflow:hidden;text-overflow:ellipsis';
+    name.textContent = segment.authorName || (segment.outgoing ? 'You' : authorKey);
+
+    const select = document.createElement('select');
+    select.dataset.voiceAuthorKey = authorKey;
+    select.style.cssText = 'max-width:155px';
+
+    const automatic = document.createElement('option');
+    automatic.value = '';
+    automatic.textContent = 'Automatic';
+    select.append(automatic);
+
+    for (const voice of compatibleVoicesForSegment(segment, voices)) {
+      const option = document.createElement('option');
+      option.value = voice.voiceURI || voice.name;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      select.append(option);
+    }
+
+    const override = voiceOverrides[authorKey] || '';
+    select.value = override;
+    if (override && !select.value) select.value = '';
+
+    select.addEventListener('change', () => {
+      setVoiceOverride(authorKey, select.value);
+    });
+
+    row.append(name, select);
+    voiceSettingsElement.append(row);
+  }
+}
 
 function speechPlanOptions() {
   return {
@@ -153,6 +239,8 @@ function onQueueChange(snapshot) {
 function buildQueue() {
   const messages = extractTelegramBubbles(renderedBubbles());
   const segments = planSpeech(messages, speechPlanOptions());
+  lastBuiltSegments = segments;
+  renderVoiceSettings();
 
   queue.load(segments, {
     startMessageId: selectedMessageId,
@@ -282,6 +370,8 @@ function handleNewMessages(messages) {
   const segments = planSpeech(forward, speechPlanOptions());
 
   if (!segments.length) return;
+  lastBuiltSegments.push(...segments);
+  renderVoiceSettings();
 
   const wasCompleted = queue.status === 'completed';
   queue.append(segments);
@@ -422,13 +512,23 @@ function createPanel() {
     makeLinkModeSelect(),
   );
 
+  voiceSettingsElement = document.createElement('div');
+  voiceSettingsElement.style.cssText = [
+    'margin-top:5px',
+    'padding-top:4px',
+    'border-top:1px solid #ffffff18',
+  ].join(';');
+  settingsBody.append(voiceSettingsElement);
+
   settingsElement.append(summary, settingsBody);
   panel.append(header, controlsElement, settingsElement);
   document.body.append(panel);
   applyPanelState();
+  renderVoiceSettings();
   renderStatus();
 }
 
+window.speechSynthesis.addEventListener?.('voiceschanged', renderVoiceSettings);
 document.addEventListener('click', onDocumentClick, true);
 document.addEventListener('visibilitychange', () => {
   if (
@@ -451,14 +551,7 @@ window.__voxThreadApp = {
   queue,
   player,
   buildQueue,
-  setVoiceOverride(authorKey, voiceURI) {
-    if (!voiceURI) delete voiceOverrides[authorKey];
-    else voiceOverrides[authorKey] = String(voiceURI);
-    localStorage.setItem(
-      VOICE_OVERRIDES_KEY,
-      JSON.stringify(voiceOverrides),
-    );
-  },
+  setVoiceOverride,
   getVoiceOverrides() {
     return { ...voiceOverrides };
   },
