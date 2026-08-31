@@ -31,5 +31,5 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-022 | DONE | P1 | Add persistent reader preferences and compact mobile UI controls that can be fully tested on emulator Chrome. |
 | TWR-023 | DONE | P1 | Automate emulator lifecycle regression: build, inject, play, sleep, verify no-skip recovery, wake and resume. |
 | TWR-024 | DONE | P0 | Add sentence-aware TTS chunking so long or merged Telegram messages do not depend on one oversized Web Speech utterance. |
-| TWR-025 | DONE | P1 | Add emulator-testable per-author voice controls and clearly expose browser voice capability/fallback state. |
-| TWR-026 | DOING | P1 | Honor configured pauses between speech segments without breaking pause/resume/next semantics. |
+| TWR-025 | DOING | P1 | Add emulator-testable per-author voice controls and clearly expose browser voice capability/fallback state. |
+| TWR-026 | DONE | P1 | Honor configured pauses between speech segments without breaking pause/resume/next semantics. |
