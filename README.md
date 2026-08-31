@@ -8,6 +8,7 @@ VoxThread is a userscript-first reader for Telegram Web on Android. It provides 
 - Telegram Web K supplies authentication, synchronization and rendered messages.
 - A userscript supplies extraction, speech planning, queueing, controls and live-follow.
 - `WebSpeechBackend` is the default local TTS provider.
+- Firefox Android is the preferred browser runtime for background/screen-off reading after API 36 regression showed uninterrupted Web Speech there; Chrome remains a supported fallback and the stronger CDP regression target.
 - TTS is a replaceable boundary; a native or remote provider can be added without rewriting Telegram/core logic. Remote TTS would require a separate privacy decision because message text would leave the device.
 
 ## Install / update
@@ -36,7 +37,7 @@ GitHub Actions is the primary reproducible development environment:
 
 - `CI` runs Node tests plus deterministic development/production bundle checks.
 - `Android emulator regression` runs the API 36 Chrome release gate and saves lifecycle diagnostics.
-- `Firefox Android comparison` is an investigation workflow for browser/runtime decisions.
+- `Firefox Android comparison` runs the cross-browser API 36 lifecycle comparison with the same real-touch start gesture.
 
 Run the complete emulator-capable gate with:
 
@@ -44,7 +45,7 @@ Run the complete emulator-capable gate with:
 npm run test:emulator:all
 ```
 
-The real Galaxy A57 remains the acceptance target for Samsung-specific power management, calls/audio focus, secure lock-screen behaviour and final Tampermonkey deployment.
+The real Galaxy A57 remains the acceptance target for Samsung-specific power management, calls/audio focus, secure lock-screen behaviour and final userscript-manager deployment. That hardware acceptance is separated from software-development completion in `TWR-031`.
 
 ## Repository layout
 
