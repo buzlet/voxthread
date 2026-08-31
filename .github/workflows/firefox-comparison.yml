@@ -15,6 +15,9 @@ concurrency:
   group: firefox-android-comparison-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FIREFOX_VERSION: '154.0.1'
+
 jobs:
   compare:
     runs-on: ubuntu-24.04
@@ -26,32 +29,18 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Resolve latest stable Firefox Android release
-        id: firefox
-        shell: bash
-        run: |
-          INDEX="$(curl -fsSL https://archive.mozilla.org/pub/fenix/releases/)"
-          VERSION="$(printf '%s' "$INDEX" \
-            | grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' \
-            | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' \
-            | sort -V \
-            | tail -n1)"
-          test -n "$VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Firefox Android $VERSION"
       - name: Restore Firefox APK cache
         id: firefox-cache
         uses: actions/cache@v4
         with:
-          path: /tmp/firefox-${{ steps.firefox.outputs.version }}.apk
-          key: fenix-x86_64-${{ steps.firefox.outputs.version }}
-      - name: Download Firefox Android APK
+          path: /tmp/firefox-${{ env.FIREFOX_VERSION }}.apk
+          key: fenix-x86_64-${{ env.FIREFOX_VERSION }}
+      - name: Download pinned Firefox Android APK
         if: steps.firefox-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          VERSION='${{ steps.firefox.outputs.version }}'
-          URL="https://archive.mozilla.org/pub/fenix/releases/$VERSION/android/fenix-$VERSION-android-x86_64/fenix-$VERSION.multi.android-x86_64.apk"
-          curl -fL --retry 3 --retry-delay 3 "$URL" -o "/tmp/firefox-$VERSION.apk"
+          URL="https://archive.mozilla.org/pub/fenix/releases/$FIREFOX_VERSION/android/fenix-$FIREFOX_VERSION-android-x86_64/fenix-$FIREFOX_VERSION.multi.android-x86_64.apk"
+          curl -fL --retry 3 --retry-delay 3 "$URL" -o "/tmp/firefox-$FIREFOX_VERSION.apk"
       - name: Enable KVM access
         run: |
           test -e /dev/kvm
@@ -71,7 +60,7 @@ jobs:
           script: |
             adb shell pm disable-user --user 0 com.android.vending >/dev/null 2>&1 || true
             adb shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
-            adb install -r "/tmp/firefox-${{ steps.firefox.outputs.version }}.apk"
+            adb install -r "/tmp/firefox-$FIREFOX_VERSION.apk"
             adb shell am set-debug-app --persistent com.android.chrome
             adb shell 'echo "chrome --disable-fre --no-default-browser-check --no-first-run --skip_first_run_ui --disable-features=Translate" > /data/local/tmp/chrome-command-line'
             adb shell am force-stop com.android.chrome
