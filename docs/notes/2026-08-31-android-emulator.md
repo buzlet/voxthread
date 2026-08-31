@@ -131,3 +131,18 @@ finish, appends synthetic Telegram bubble `5001` through CDP, and verifies that
 MutationObserver extends the queue from 2 to 3 and automatically resumes
 playback on the new message. This validates the completed-queue live-follow
 path without a Telegram account.
+
+## Per-author voice controls
+
+The bundled reader now exposes per-author voice selectors in Settings.
+Emulator Chrome reported 92 browser voices. For the Russian group fixture,
+VoxThread created two author rows and filtered each row to the compatible
+`ru_RU` voice plus `Automatic`.
+
+A CDP regression applied `Russian Russia` specifically to author `id:77`.
+The override persisted in the runtime voice map while author `id:88` remained
+on automatic selection.
+
+When a browser exposes no voices, the UI explicitly reports that the browser
+voice list is unavailable and VoxThread continues with deterministic rate/pitch
+variation as its fallback.
