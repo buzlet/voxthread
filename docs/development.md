@@ -1,29 +1,35 @@
 <!-- docs/development.md -->
-# Development workflow
+# Development targets
 
-## Commit-before-run rule
+## Android targets
 
-Any executable change, including throwaway diagnostics and one-off experiments, must be committed before execution on `u24`, Android, a desktop browser or CI.
+### Galaxy A57
+Primary real-device target.
 
-Recommended sequence:
+Purpose:
+- Samsung/Android behaviour.
+- Real phone calls, audio focus, screen lock and Doze.
+- Real Telegram Web session and Android TTS integration.
+- Final background/lock-screen validation.
 
-1. Edit source/test/documentation files.
-2. Review `git diff` and repository status.
-3. Commit the complete experiment.
-4. Run tests or deploy/inject it.
-5. Record observations in `docs/notes/` when they affect later work.
-6. Fix failures in a new commit; do not silently rewrite the executed commit.
+Transport:
+- Wireless ADB from `u24`.
+- Edge Android + Tampermonkey + CDP.
 
-This gives every observed behaviour an exact Git revision.
+### Android Emulator
+Secondary fast development target.
 
-## Commit messages
+Purpose:
+- Rapid userscript/browser regression testing.
+- DOM, queue, controls and browser lifecycle experiments.
+- Reproducible clean Android state.
+- Must not replace Galaxy A57 for Samsung, telephony, audio-focus,
+  power-management or real lock-screen acceptance tests.
 
-Use `TWR-xxx: description` when a backlog item applies. Infrastructure/documentation commits without a backlog item may use a concise scoped message such as `docs: record baseline architecture`.
-
-## Decisions
-
-Create a numbered ADR under `docs/decisions/` for choices that constrain future implementation. Mark superseded decisions rather than deleting them.
-
-## Test data
-
-Do not commit Telegram credentials, cookies, sessions or unsanitized private messages. Prefer synthetic fixtures; sanitize captured DOM before adding it to Git.
+Current host blocker:
+- `u24` runs as a Microsoft Hyper-V guest.
+- `/dev/kvm` is absent.
+- Guest CPU does not expose `vmx`/`svm`.
+- `modprobe kvm_intel` fails with `Operation not supported`.
+- Hyper-V nested virtualization must be enabled on the host before
+  accelerated Android Emulator is practical inside `u24`.
