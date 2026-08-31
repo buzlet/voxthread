@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: firefox-android-comparison-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compare:
     runs-on: ubuntu-24.04
@@ -29,7 +33,7 @@ jobs:
           INDEX="$(curl -fsSL https://archive.mozilla.org/pub/fenix/releases/)"
           VERSION="$(printf '%s' "$INDEX" \
             | grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' \
-            | sed -E 's/^href="//;s:/$::;s:"$::' \
+            | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' \
             | sort -V \
             | tail -n1)"
           test -n "$VERSION"
