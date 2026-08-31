@@ -22,6 +22,6 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-013 | TODO | P1 | Add Node unit tests and browser fixture/regression tests. |
 | TWR-014 | TODO | P0 | Compare the same reader on Firefox Android and document background/TTS differences. |
 | TWR-015 | TODO | P2 | Evaluate MediaSession/Bluetooth headset controls for playback. |
-| TWR-016 | TODO | P2 | Build reproducible userscript bundling/install/update workflow. |
+| TWR-016 | DOING | P2 | Build reproducible userscript bundling/install/update workflow. |
 | TWR-017 | DONE | P2 | Select and apply the final public project/repository name: VoxThread; update paths, README and future GitHub remote metadata consistently. |
 | TWR-018 | DONE | P0 | Verify the first end-to-end path from visible Telegram message extraction to speaking the actual message text through TTS. |
