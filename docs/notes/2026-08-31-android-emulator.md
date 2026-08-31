@@ -69,3 +69,19 @@ Validated result:
 - slept index: 0
 - resumed index: 0
 - resumed same message: true
+
+## Automated lifecycle regression
+
+`npm run test:emulator:lifecycle` now performs the complete repeatable flow:
+build the current development bundle, start/wake the emulator, open the long
+Telegram fixture, inject VoxThread, start speech through a real CDP touch,
+sleep Android, verify that the queue pauses on the interrupted message, wake
+Android, and verify that the exact same message resumes.
+
+Validated result:
+- queue length: 12
+- interrupted message: `3001`
+- error: `interrupted`
+- sleep index: 0
+- resume index: 0
+- same-message resume: true

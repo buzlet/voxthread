@@ -30,3 +30,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-021 | DONE | P1 | Add a real-Chrome emulator smoke test for the bundled VoxThread runtime against sanitized Telegram DOM fixtures. |
 | TWR-022 | DONE | P1 | Add persistent reader preferences and compact mobile UI controls that can be fully tested on emulator Chrome. |
 | TWR-023 | DONE | P1 | Automate emulator lifecycle regression: build, inject, play, sleep, verify no-skip recovery, wake and resume. |
+| TWR-024 | DOING | P0 | Add sentence-aware TTS chunking so long or merged Telegram messages do not depend on one oversized Web Speech utterance. |
