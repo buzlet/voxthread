@@ -119,6 +119,7 @@ const state = await evaluate(`(() => {
     voiceCount: state?.voices?.length || 0,
     voices: state?.voices?.slice(0, 40) || [],
     tts: state?.tts || null,
+    lastSpoken: state?.lastSpoken || null,
   };
 })()`);
 
