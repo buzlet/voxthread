@@ -45,4 +45,4 @@ Foreground start succeeded. After switching to Samsung Launcher, the queue conti
 After turning the screen off, Android reported `mWakefulness=Dozing`, `mDreamingLockscreen=true`, `isKeyguardShowing=true`; the queue advanced once more to `started=3`, `ended=2`.
 After a longer lock interval, the Edge CDP endpoint stopped responding. The Edge process and `@chrome_devtools_remote` socket remained present, indicating renderer/browser suspension rather than immediate process death.
 After waking the device and bringing Edge forward, CDP recovered but VoxThread state was reset to `queued=0`, `started=0`, `ended=0`; the Telegram page/runtime had been recreated and the queued speech was lost.
-Conclusion: Edge background speech works while merely backgrounded, but long lock-screen playback is not reliable enough for unattended reading.
+This lock-screen run is inconclusive: an incoming phone call occurred during the test and remained active for part of the experiment. The call may have affected audio focus, browser/runtime scheduling, and the observed transition. Repeat TWR-004 without a concurrent call before drawing a lock-screen conclusion.
