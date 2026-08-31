@@ -29,4 +29,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-020 | DONE | P0 | Preserve the current message on Web Speech runtime errors so sleep/audio-focus failures cannot silently skip unread content. |
 | TWR-021 | DONE | P1 | Add a real-Chrome emulator smoke test for the bundled VoxThread runtime against sanitized Telegram DOM fixtures. |
 | TWR-022 | DONE | P1 | Add persistent reader preferences and compact mobile UI controls that can be fully tested on emulator Chrome. |
-| TWR-023 | TODO | P1 | Automate emulator lifecycle regression: build, inject, play, sleep, verify no-skip recovery, wake and resume. |
+| TWR-023 | DOING | P1 | Automate emulator lifecycle regression: build, inject, play, sleep, verify no-skip recovery, wake and resume. |

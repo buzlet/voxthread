@@ -8,7 +8,8 @@
     "build:userscript": "node scripts/build-userscript.mjs",
     "test:emulator": "node scripts/emulator-smoke.mjs",
     "build:dev": "node scripts/build-userscript.mjs --dev",
-    "test:emulator:runtime": "node scripts/cdp-runtime-smoke.mjs --play"
+    "test:emulator:runtime": "node scripts/cdp-runtime-smoke.mjs --play",
+    "test:emulator:lifecycle": "node scripts/emulator-lifecycle-regression.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
