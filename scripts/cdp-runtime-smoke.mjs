@@ -6,6 +6,14 @@ const shouldPlay = process.argv.includes('--play');
 const shouldStop = process.argv.includes('--stop');
 const inspectOnly = process.argv.includes('--inspect');
 const prefArgs = process.argv.filter(arg => arg.startsWith('--pref='));
+const voiceAuthorArg = process.argv.find(arg => arg.startsWith('--voice-author='));
+const voiceUriArg = process.argv.find(arg => arg.startsWith('--voice-uri='));
+const voiceAuthor = voiceAuthorArg
+  ? decodeURIComponent(voiceAuthorArg.slice('--voice-author='.length))
+  : null;
+const voiceUri = voiceUriArg
+  ? decodeURIComponent(voiceUriArg.slice('--voice-uri='.length))
+  : null;
 const fixtureArg = process.argv.find(arg => arg.startsWith('--fixture='));
 const fixture = fixtureArg?.slice('--fixture='.length) || 'telegram-group-basic.html';
 if (!/^[a-z0-9.-]+\.html$/i.test(fixture)) throw new Error('Invalid fixture name');
@@ -97,6 +105,12 @@ if (Object.keys(preferencePatch).length) {
   );
 }
 
+if (voiceAuthor !== null && voiceUri !== null) {
+  await evaluate(
+    `window.__voxThreadApp.setVoiceOverride(${JSON.stringify(voiceAuthor)}, ${JSON.stringify(voiceUri)}); true`,
+  );
+}
+
 const build = inspectOnly
   ? null
   : await evaluate('window.__voxThreadApp.buildQueue()');
@@ -143,6 +157,15 @@ const state = await evaluate(`(() => ({
   controlsHidden: document.querySelector('#voxthread-reader > div:nth-child(2)')?.hidden ?? null,
   settingsHidden: document.querySelector('#voxthread-reader > details')?.hidden ?? null,
   voiceCount: speechSynthesis.getVoices().length,
+  voiceSummary: [...document.querySelectorAll('#voxthread-reader details div')]
+    .map(element => element.textContent || '')
+    .find(text => text.startsWith('Voices:')) || null,
+  voiceControls: [...document.querySelectorAll('[data-voice-author-key]')].map(select => ({
+    authorKey: select.dataset.voiceAuthorKey,
+    value: select.value,
+    optionCount: select.options.length,
+  })),
+  voiceOverrides: window.__voxThreadApp?.getVoiceOverrides?.() ?? null,
   speaking: speechSynthesis.speaking,
   pending: speechSynthesis.pending,
 }))()`);
