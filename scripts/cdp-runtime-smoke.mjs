@@ -6,6 +6,8 @@ const shouldPlay = process.argv.includes('--play');
 const shouldStop = process.argv.includes('--stop');
 const inspectOnly = process.argv.includes('--inspect');
 const prefArgs = process.argv.filter(arg => arg.startsWith('--pref='));
+const selectArg = process.argv.find(arg => arg.startsWith('--select-mid='));
+const selectMid = selectArg?.slice('--select-mid='.length) || null;
 const voiceLangArg = process.argv.find(arg => arg.startsWith('--voice-lang='));
 const voiceLanguage = voiceLangArg?.slice('--voice-lang='.length) || null;
 const voiceAuthorArg = process.argv.find(arg => arg.startsWith('--voice-author='));
@@ -113,6 +115,38 @@ if (voiceAuthor !== null && voiceUri !== null) {
   );
 }
 
+if (selectMid !== null && !inspectOnly) {
+  const targets = await evaluate(`(() => {
+    const pick = [...document.querySelectorAll('#voxthread-reader button')]
+      .find(element => element.textContent.trim() === 'Pick start');
+    const bubble = document.querySelector(
+      '.bubble[data-mid=${JSON.stringify(selectMid)}]'
+    );
+    if (!pick || !bubble) return null;
+
+    const pr = pick.getBoundingClientRect();
+    const br = bubble.getBoundingClientRect();
+    return {
+      pick: { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 },
+      bubble: { x: br.left + br.width / 2, y: br.top + br.height / 2 },
+    };
+  })()`);
+
+  if (!targets) throw new Error(`Selection target not found: ${selectMid}`);
+
+  for (const point of [targets.pick, targets.bubble]) {
+    await cdp('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: point.x, y: point.y }],
+    });
+    await cdp('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await new Promise(resolve => setTimeout(resolve, 120));
+  }
+}
+
 const build = inspectOnly
   ? null
   : await evaluate('window.__voxThreadApp.buildQueue()');
@@ -175,6 +209,7 @@ if (shouldStop) {
 const state = await evaluate(`(() => ({
   panelPresent: Boolean(document.querySelector('#voxthread-reader')),
   version: window.__voxThreadApp?.version ?? null,
+  selectedMessageId: window.__voxThreadApp?.selectedMessageId ?? null,
   build: ${JSON.stringify(build)},
   queue: window.__voxThreadApp?.queue?.snapshot ?? null,
   playerError: window.__voxThreadApp?.player?.lastError ?? null,
