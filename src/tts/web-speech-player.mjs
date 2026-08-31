@@ -8,11 +8,13 @@ export class WebSpeechPlayer {
     speechSynthesis,
     Utterance,
     voiceResolver = null,
+    prosodyResolver = null,
   }) {
     this.queue = queue;
     this.speechSynthesis = speechSynthesis;
     this.Utterance = Utterance;
     this.voiceResolver = voiceResolver;
+    this.prosodyResolver = prosodyResolver;
   }
 
   #utteranceText(segment) {
@@ -34,6 +36,10 @@ export class WebSpeechPlayer {
       utterance.voice = voice;
       if (voice.lang) utterance.lang = voice.lang;
     }
+
+    const prosody = this.prosodyResolver?.(segment) ?? null;
+    if (prosody?.rate) utterance.rate = prosody.rate;
+    if (prosody?.pitch) utterance.pitch = prosody.pitch;
 
     utterance.onend = () => {
       if (generation !== this.#generation) return;

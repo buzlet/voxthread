@@ -13,7 +13,7 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-004 | DOING | P0 | Measure TTS behaviour foreground, background, screen-off and locked-screen; record exact failure modes. |
 | TWR-005 | DOING | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
 | TWR-006 | DONE | P0 | Define and implement the normalized message model and Telegram adapter boundary. |
-| TWR-007 | TODO | P1 | Implement deterministic author-to-voice mapping with language compatibility and persistent overrides. |
+| TWR-007 | DOING | P1 | Implement deterministic author-to-voice mapping with language compatibility and persistent overrides. |
 | TWR-008 | DONE | P1 | Implement speech planning: author-change announcements, merging, filtering and pauses. |
 | TWR-009 | DONE | P1 | Implement playback queue with play/pause/resume/stop/previous/next semantics. |
 | TWR-010 | DOING | P1 | Add incremental message discovery using MutationObserver and virtualized-history scrolling. |
