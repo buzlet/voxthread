@@ -3,6 +3,7 @@ const base = process.env.CDP_BASE || 'http://127.0.0.1:9222';
 const peerArg = process.argv.find(arg => arg.startsWith('--peer='));
 const peerId = peerArg?.slice('--peer='.length) || null;
 const shouldScan = process.argv.includes('--scan');
+const shouldListPeers = process.argv.includes('--list-peers');
 const speakArg = process.argv.find(arg => arg.startsWith('--speak='));
 const speakCount = Number(speakArg?.slice('--speak='.length) || 0);
 const shouldStop = process.argv.includes('--stop');
@@ -45,6 +46,21 @@ async function evaluate(expression) {
     awaitPromise: true,
   });
   return result.result?.value;
+}
+
+if (shouldListPeers) {
+  const peers = await evaluate(`(() => [...document.querySelectorAll('a[data-peer-id]')]
+    .filter(el => {
+      const r = el.getBoundingClientRect();
+      return el.offsetParent !== null && r.width > 0 && r.height > 0;
+    })
+    .map(el => ({
+      peerId: el.dataset.peerId || null,
+      threadId: el.dataset.threadId || null,
+    })))()`);
+  console.log(JSON.stringify({ peers }, null, 2));
+  ws.close();
+  process.exit(0);
 }
 
 if (peerId) {
