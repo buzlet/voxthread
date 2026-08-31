@@ -7,7 +7,7 @@ const speakArg = process.argv.find(arg => arg.startsWith('--speak='));
 const speakCount = Number(speakArg?.slice('--speak='.length) || 0);
 const shouldStop = process.argv.includes('--stop');
 const touchArg = process.argv.find(arg => arg.startsWith('--touch-button='));
-const touchLabel = touchArg?.slice('--touch-button='.length) || null;
+const touchLabel = touchArg ? decodeURIComponent(touchArg.slice('--touch-button='.length)) : null;
 
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
 const page = pages.find(p =>
