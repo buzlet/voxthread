@@ -40,18 +40,26 @@ async function evaluate(expression) {
   return result.result?.value;
 }
 
-const opened = await evaluate(`(() => {
+const target = await evaluate(`(() => {
   const rows = [...document.querySelectorAll('a[data-peer-id="${peerId}"]')];
   const el = rows.find(el => {
     const r = el.getBoundingClientRect();
     return el.offsetParent !== null && r.width > 0 && r.height > 0;
   });
-  if (!el) return false;
-  el.click();
-  return true;
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 })()`);
 
-if (!opened) throw new Error(`Peer ${peerId} not found`);
+if (!target) throw new Error(`Peer ${peerId} not found`);
+await cdp('Input.dispatchTouchEvent', {
+  type: 'touchStart',
+  touchPoints: [{ x: target.x, y: target.y }],
+});
+await cdp('Input.dispatchTouchEvent', {
+  type: 'touchEnd',
+  touchPoints: [],
+});
 await new Promise(resolve => setTimeout(resolve, 1500));
 
 const summary = await evaluate(`(() => {
