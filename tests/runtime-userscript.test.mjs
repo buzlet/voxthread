@@ -107,6 +107,7 @@ test('integrated userscript selects a message and starts real queue', async () =
     assert.match(synth.spoken[0].text, /Первое сообщение/);
 
     synth.spoken[0].onend();
+    await new Promise(resolve => setTimeout(resolve, 275));
 
     assert.equal(synth.spoken.length, 2);
     assert.match(synth.spoken[1].text, /Боб/);
