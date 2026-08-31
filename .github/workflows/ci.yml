@@ -24,6 +24,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run build:dev
-      - name: Verify generated bundle is reproducible
-        run: git diff --exit-code -- dist/voxthread-dev.js
+      - name: Verify development bundle reproducibility
+        run: |
+          npm run build:dev
+          cp dist/voxthread-dev.js /tmp/voxthread-dev.js
+          npm run build:dev
+          cmp /tmp/voxthread-dev.js dist/voxthread-dev.js
+      - name: Verify production userscript and reproducibility
+        run: |
+          npm run build:userscript
+          npm run verify:userscript
+          cp dist/voxthread.user.js /tmp/voxthread.user.js
+          npm run build:userscript
+          cmp /tmp/voxthread.user.js dist/voxthread.user.js
