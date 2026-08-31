@@ -128,7 +128,10 @@ if (selectMid !== null && !inspectOnly) {
     const br = bubble.getBoundingClientRect();
     return {
       pick: { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 },
-      bubble: { x: br.left + br.width / 2, y: br.top + br.height / 2 },
+      bubble: {
+        x: br.left + Math.min(24, Math.max(8, br.width * 0.15)),
+        y: br.top + br.height / 2,
+      },
     };
   })()`);
 
@@ -143,7 +146,25 @@ if (selectMid !== null && !inspectOnly) {
       type: 'touchEnd',
       touchPoints: [],
     });
-    await new Promise(resolve => setTimeout(resolve, 120));
+    await new Promise(resolve => setTimeout(resolve, 180));
+  }
+
+  const selected = await evaluate(
+    'window.__voxThreadApp?.selectedMessageId ?? null'
+  );
+  if (selected !== selectMid) {
+    const hit = await evaluate(`(() => {
+      const point = ${JSON.stringify(targets.bubble)};
+      const element = document.elementFromPoint(point.x, point.y);
+      return {
+        tag: element?.tagName ?? null,
+        className: element?.className ?? null,
+        mid: element?.closest?.('.bubble[data-mid]')?.dataset?.mid ?? null,
+      };
+    })()`);
+    throw new Error(
+      `Real-touch selection failed for ${selectMid}: ${JSON.stringify(hit)}`
+    );
   }
 }
 
