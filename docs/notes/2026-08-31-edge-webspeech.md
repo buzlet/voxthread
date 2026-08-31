@@ -51,3 +51,18 @@ This lock-screen run is inconclusive for three independent reasons:
 3. After waking the phone, Edge was explicitly launched again before the final state check. The observed reset to `queued=0`, `started=0`, `ended=0` therefore does not prove that the original runtime had been destroyed by screen lock.
 
 Repeat TWR-004 without a phone call. After wake, reconnect Wireless ADB/CDP and inspect the existing Edge tab without launching or navigating Edge first.
+
+## Emulator control observation
+
+The Android 16 `voxthread-api36` emulator provides a useful control case.
+Chrome exposed 92 Web Speech voices, including local `ru_RU`.
+A 20-utterance queue progressed normally while the emulator display was awake.
+
+After `input keyevent 26`, Android reported `mWakefulness=Asleep`.
+The queue reached `started=11`, `ended=10`, then stopped. Ten error callbacks
+were observed: one `interrupted` and nine `synthesis-failed`.
+The counters remained unchanged eight seconds later.
+
+This strongly suggests that Chromium/Web Speech can lose queued synthesis when
+Android sleeps, but it does not replace the clean Galaxy A57 test because the
+emulator TTS/audio stack and power management differ from Samsung hardware.
