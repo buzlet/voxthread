@@ -53,3 +53,19 @@ Long lifecycle fixture:
   segment and playback returned to `playing`
 
 This validates the no-silent-skip recovery path in a real Chromium runtime.
+
+## Automated lifecycle regression
+
+`npm run test:emulator:lifecycle` now performs the complete emulator-only
+lifecycle check: build current dev bundle, open the long Telegram fixture,
+start VoxThread through a real CDP touch, sleep Android, verify that the
+current message is preserved on TTS interruption, wake Android and verify
+that the same message resumes.
+
+Validated result:
+- queue length: 12
+- interrupted message: 3001
+- sleep error: `interrupted`
+- slept index: 0
+- resumed index: 0
+- resumed same message: true
