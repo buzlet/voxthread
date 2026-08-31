@@ -14,7 +14,10 @@ import {
   prosodyForAuthor,
 } from '../tts/voice-map.mjs';
 
-const VERSION = __VOXTHREAD_VERSION__;
+const VERSION =
+  typeof __VOXTHREAD_VERSION__ === 'undefined'
+    ? 'dev'
+    : __VOXTHREAD_VERSION__;
 const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
 const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
