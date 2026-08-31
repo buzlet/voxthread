@@ -6,6 +6,8 @@ const shouldScan = process.argv.includes('--scan');
 const speakArg = process.argv.find(arg => arg.startsWith('--speak='));
 const speakCount = Number(speakArg?.slice('--speak='.length) || 0);
 const shouldStop = process.argv.includes('--stop');
+const touchArg = process.argv.find(arg => arg.startsWith('--touch-button='));
+const touchLabel = touchArg?.slice('--touch-button='.length) || null;
 
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
 const page = pages.find(p =>
@@ -65,6 +67,24 @@ if (peerId) {
     type: 'touchEnd', touchPoints: [],
   });
   await new Promise(resolve => setTimeout(resolve, 1200));
+}
+
+if (touchLabel) {
+  const target = await evaluate(`(() => {
+    const buttons = [...document.querySelectorAll('#voxthread-diagnostics button')];
+    const el = buttons.find(button => button.textContent?.trim() === ${JSON.stringify(touchLabel)});
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  if (!target) throw new Error(`Button ${touchLabel} not found`);
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchStart', touchPoints: [{ x: target.x, y: target.y }],
+  });
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchEnd', touchPoints: [],
+  });
+  await new Promise(resolve => setTimeout(resolve, 300));
 }
 
 if (shouldScan) {
