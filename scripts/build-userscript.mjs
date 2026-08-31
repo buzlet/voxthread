@@ -5,7 +5,9 @@ import fs from 'node:fs/promises';
 const pkg = JSON.parse(await fs.readFile('package.json', 'utf8'));
 
 const revisionArg = process.argv.find(arg => arg.startsWith('--revision='));
-const revision = revisionArg?.slice('--revision='.length) || '005';
+const [, minor = '0'] = String(pkg.version).split('.');
+const defaultRevision = String(Number(minor) || 0).padStart(3, '0');
+const revision = revisionArg?.slice('--revision='.length) || defaultRevision;
 const outfile = `dist/voxthread-${revision}.user.js`;
 
 const metadata = `// ==UserScript==
