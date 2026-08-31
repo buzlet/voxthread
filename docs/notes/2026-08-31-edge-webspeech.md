@@ -29,4 +29,3 @@ Firefox comparison under TWR-014 is therefore important in addition to the backg
 The 20 utterances were synthetic diagnostics such as `Message number 1`, `Message number 2`, and so on, spoken in English.
 No Telegram message text was spoken during either of the two audible queue runs.
 The `20/20` result therefore proves queue execution and background continuity only; it does not prove the end-to-end Telegram-message-to-TTS path.
-
