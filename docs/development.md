@@ -3,18 +3,31 @@
 
 ## Commit-before-run rule
 
-Any executable change, including throwaway diagnostics and one-off experiments, must be committed before execution on `u24`, Android, a desktop browser or CI.
+Any executable change, including diagnostics and one-off experiments, must be committed before execution on Android, a browser, CI or an optional development host.
 
 Recommended sequence:
 
-1. Edit source/test/documentation files.
-2. Review `git diff` and repository status.
+1. Edit source/test/documentation files in a branch/worktree.
+2. Review the diff and repository status.
 3. Commit the complete experiment.
-4. Run tests or deploy/inject it.
-5. Record observations in `docs/notes/` when they affect later work.
-6. Fix failures in a new commit; do not silently rewrite the executed commit.
+4. Push the branch and let GitHub Actions run it.
+5. Record non-obvious observations in `docs/notes/` with the tested commit SHA.
+6. Fix failures in a new commit; do not rewrite an observed commit.
 
-This gives every observed behaviour an exact Git revision.
+This makes every reported behaviour attributable to an exact Git revision.
+
+## Primary development environment
+
+GitHub is the authoritative and reproducible development/test environment. Do not depend on `u24` or another always-on host.
+
+- Work in a branch based on current `main`.
+- Push complete commits to GitHub.
+- `CI` runs Node tests and reproducible userscript builds.
+- `Android emulator regression` runs the API 36 Chrome release gate.
+- `Firefox Android comparison` is an investigation workflow used when browser choice may change the runtime decision.
+- Keep Android diagnostics as workflow artifacts; never put Telegram credentials or private messages in them.
+
+A local machine or `u24` may still be used as a convenience when available, but it is not required for ordinary development or CI acceptance.
 
 ## Commit messages
 
@@ -28,34 +41,33 @@ Create a numbered ADR under `docs/decisions/` for choices that constrain future 
 
 Do not commit Telegram credentials, cookies, sessions or unsanitized private messages. Prefer synthetic fixtures; sanitize captured DOM before adding it to Git.
 
+## TTS provider development
+
+Provider-specific speech code belongs under `src/tts/`. Runtime/core/UI code must consume the backend surface rather than browser-native speech objects.
+
+The current `WebSpeechBackend` owns Web Speech APIs and returns normalized voice descriptors. A native or remote backend should implement the same application-facing capabilities instead of adding provider checks throughout the program. Remote TTS requires a separate privacy/security ADR because message text leaves the device.
+
 ## Android test targets
 
 ### Galaxy A57
-Primary real-device target.
 
-Use it for Samsung/Android behaviour, phone-call audio focus, screen lock,
-Doze, real Telegram Web sessions and final background acceptance tests.
+Primary real-device acceptance target. Use it for Samsung-specific power management, phone-call audio focus, secure lock-screen behaviour, Doze, real Telegram Web sessions and final Tampermonkey deployment/update acceptance.
 
-Transport:
-- Wireless ADB from `u24`.
-- Edge Android + Tampermonkey + CDP.
+When a suitable development host is available, Wireless ADB/CDP is the preferred transport. Real-device acceptance is intentionally separate from GitHub CI.
 
-### Android Emulator
-Secondary fast development target.
+### GitHub Android Emulator
 
-Use it for rapid browser/userscript regression tests, DOM/queue/control
-experiments and reproducible clean Android state.
-
-It does not replace Galaxy A57 for Samsung-specific behaviour, telephony,
-audio focus, power management or final lock-screen acceptance tests.
+Primary automated Android regression target.
 
 Current setup:
-- Hyper-V nested virtualization is enabled for `u24`.
-- `/dev/kvm` is available and KVM acceleration is usable.
-- AVD: `voxthread-api36`, Android 16/API 36, Google APIs x86_64.
-- Runtime: 2 vCPU, 2 GiB RAM, headless SwiftShader.
-- Chrome is exposed through CDP on host port `9223`.
-- `npm run test:emulator` performs the repeatable Chrome/Web Speech smoke test.
+
+- GitHub-hosted Ubuntu 24.04 with KVM.
+- Android 16/API 36 x86_64 Google Play image.
+- Chrome with CDP.
+- Synthetic/sanitized Telegram fixtures only.
+- 2 vCPU, 2 GiB RAM, headless SwiftShader.
+
+It does not replace Galaxy A57 for Samsung-specific behaviour, telephony, OEM power management or final secure-device acceptance.
 
 ## Emulator release gate
 
@@ -65,21 +77,29 @@ Run the complete emulator-capable regression set with:
 npm run test:emulator:all
 ```
 
-It covers Node tests, Chrome Web Speech availability, sleep/wake no-skip
-recovery, live-follow after queue completion, and real-touch start selection.
-Galaxy A57 remains the acceptance target for Samsung-specific power/audio
-behaviour and the final Tampermonkey deployment path.
+The GitHub Android workflow additionally records a foreground/background/screen-off/locked-screen TTS lifecycle matrix. The safety invariant is that lifecycle interruption may pause or fail speech, but it must never silently advance past the current message.
 
-## GitHub Actions fallback development environment
+The gate covers Node tests, Chrome Web Speech availability, sleep/wake no-skip recovery, live-follow after queue completion and real-touch start selection.
 
-GitHub Actions is the independent fallback when `u24` is unavailable.
+## Userscript build and release
 
-- `CI` runs on every push and pull request: clean `npm ci`, all Node tests,
-  development userscript build, and generated-bundle reproducibility check.
-- `Android emulator regression` runs on `main`, pull requests, or manually. It
-  creates an API 36 x86_64 Google Play AVD with KVM, prepares Chrome for CDP,
-  then runs smoke, lifecycle, live-follow and real-touch selection regressions.
-- Emulator diagnostics are retained as a short-lived workflow artifact.
+Development bundle:
 
-No secret Telegram state is required by either workflow; all browser regressions
-use committed sanitized fixtures.
+```bash
+npm run build:dev
+```
+
+Production userscript:
+
+```bash
+npm run build:userscript
+npm run verify:userscript
+```
+
+Production output is always `dist/voxthread.user.js`. CI rebuilds both development and production outputs twice and compares them byte-for-byte.
+
+A release tag must be `vX.Y.Z` and match `package.json` version. `.github/workflows/release.yml` verifies tests, metadata and reproducibility before publishing `voxthread.user.js` plus its SHA-256 file to the GitHub release. The userscript metadata points Tampermonkey-compatible update checks at the stable latest-release asset URL.
+
+## Privacy
+
+No GitHub workflow requires Telegram credentials. Browser regressions use committed sanitized fixtures. Do not upload cookies, session databases, pairing secrets, private messages or unsanitized browser state as artifacts.
