@@ -4,9 +4,28 @@ import fs from 'node:fs/promises';
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const shouldPlay = process.argv.includes('--play');
 const inspectOnly = process.argv.includes('--inspect');
+const prefArgs = process.argv.filter(arg => arg.startsWith('--pref='));
 const fixtureArg = process.argv.find(arg => arg.startsWith('--fixture='));
 const fixture = fixtureArg?.slice('--fixture='.length) || 'telegram-group-basic.html';
 if (!/^[a-z0-9.-]+\.html$/i.test(fixture)) throw new Error('Invalid fixture name');
+
+function parsePreferenceValue(value) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}
+
+const preferencePatch = Object.fromEntries(
+  prefArgs.map(arg => {
+    const pair = arg.slice('--pref='.length);
+    const index = pair.indexOf('=');
+    if (index < 1) throw new Error(`Invalid preference argument: ${arg}`);
+    return [
+      pair.slice(0, index),
+      parsePreferenceValue(pair.slice(index + 1)),
+    ];
+  }),
+);
 
 const pages = await fetch(`${base}/json/list`).then(response => response.json());
 const page = pages
@@ -71,6 +90,12 @@ if (!inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
   await new Promise(resolve => setTimeout(resolve, 150));
 }
 
+if (Object.keys(preferencePatch).length) {
+  await evaluate(
+    `window.__voxThreadApp.setReaderPreferences(${JSON.stringify(preferencePatch)})`,
+  );
+}
+
 const build = inspectOnly
   ? null
   : await evaluate('window.__voxThreadApp.buildQueue()');
@@ -106,6 +131,9 @@ const state = await evaluate(`(() => ({
   build: ${JSON.stringify(build)},
   queue: window.__voxThreadApp?.queue?.snapshot ?? null,
   playerError: window.__voxThreadApp?.player?.lastError ?? null,
+  preferences: window.__voxThreadApp?.getReaderPreferences?.() ?? null,
+  controlsHidden: document.querySelector('#voxthread-reader > div:nth-child(2)')?.hidden ?? null,
+  settingsHidden: document.querySelector('#voxthread-reader > details')?.hidden ?? null,
   voiceCount: speechSynthesis.getVoices().length,
   speaking: speechSynthesis.speaking,
   pending: speechSynthesis.pending,
