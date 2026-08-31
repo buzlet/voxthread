@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# scripts/voxemu
+set -euo pipefail
+SDK="${ANDROID_SDK_ROOT:-/home/gpt/Android/Sdk}"
+ADB="$SDK/platform-tools/adb"
+EMU="$SDK/emulator/emulator"
+SERIAL="${VOXEMU_SERIAL:-emulator-5554}"
+AVD="${VOXEMU_AVD:-voxthread-api36}"
+boot_wait() {
+  "$ADB" -s "$SERIAL" wait-for-device
+  until [ "$("$ADB" -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done
+}
+case "${1:-status}" in
+  start)
+    if ! "$ADB" -s "$SERIAL" get-state >/dev/null 2>&1; then
+      sg kvm -c "nohup '$EMU' '@$AVD' -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 1536 -cores 2 >/tmp/voxthread-emulator.log 2>&1 &"
+    fi
+    boot_wait
+    "$ADB" -s "$SERIAL" shell getprop ro.build.version.release
+    ;;
+  stop) "$ADB" -s "$SERIAL" emu kill ;;
+  status)
+    "$ADB" devices -l
+    "$ADB" -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null || true
+    ;;
+  cdp) "$ADB" -s "$SERIAL" forward tcp:9223 localabstract:chrome_devtools_remote ;;
+  adb) shift; exec "$ADB" -s "$SERIAL" "$@" ;;
+  *) echo "usage: voxemu {start|stop|status|cdp|adb ...}" >&2; exit 2 ;;
+esac

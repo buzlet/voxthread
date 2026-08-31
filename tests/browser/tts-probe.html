@@ -30,7 +30,7 @@ function speak20(){
   speechSynthesis.cancel();
   state.queued=20; state.started=0; state.ended=0; state.errors=[];
   for(let i=1;i<=20;i++){
-    const u=new SpeechSynthesisUtterance(`VoxThread Firefox test. Message number ${i}.`);
+    const u=new SpeechSynthesisUtterance(`VoxThread browser test. Message number ${i}.`);
     u.lang='en-US';
     u.onstart=()=>{state.started++;render()};
     u.onend=()=>{state.ended++;render()};
@@ -42,6 +42,7 @@ function speak20(){
 document.getElementById('voicesBtn').onclick=render;
 document.getElementById('speakBtn').onclick=speak20;
 document.getElementById('stopBtn').onclick=()=>speechSynthesis.cancel();
+window.__voxTtsProbe={state,render,speak20};
 speechSynthesis.addEventListener?.('voiceschanged',render);
 render();
 </script>
