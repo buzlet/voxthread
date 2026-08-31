@@ -1,0 +1,107 @@
+// tests/message-observer.test.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  TelegramMessageObserver,
+  scrollTowardOlder,
+} from '../src/telegram/message-observer.mjs';
+
+function classList(...names) {
+  const values = new Set(names);
+  return { contains: name => values.has(name) };
+}
+
+function bubble(mid, text) {
+  return {
+    dataset: { mid, peerId: '10' },
+    classList: classList('bubble', 'is-in', 'hide-name'),
+    querySelector(selector) {
+      if (selector === '.translatable-message') return { innerText: text };
+      return null;
+    },
+  };
+}
+
+class FakeMutationObserver {
+  static latest = null;
+
+  constructor(callback) {
+    this.callback = callback;
+    this.observed = null;
+    this.disconnected = false;
+    FakeMutationObserver.latest = this;
+  }
+
+  observe(root, options) {
+    this.observed = { root, options };
+  }
+
+  disconnect() {
+    this.disconnected = true;
+  }
+
+  trigger() {
+    this.callback([]);
+  }
+}
+
+test('discovers initial messages and deduplicates later scans', () => {
+  const nodes = [bubble('1', 'one'), bubble('2', 'two')];
+  const batches = [];
+  const root = {
+    querySelectorAll() {
+      return nodes;
+    },
+  };
+
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    onMessages: messages => batches.push(messages.map(x => x.id)),
+  });
+
+  const initial = observer.start();
+  assert.deepEqual(initial.map(x => x.id), ['1', '2']);
+  assert.equal(observer.seenCount, 2);
+
+  nodes.push(bubble('3', 'three'));
+  FakeMutationObserver.latest.trigger();
+
+  assert.deepEqual(batches, [['1', '2'], ['3']]);
+  assert.equal(observer.seenCount, 3);
+});
+
+test('stop disconnects MutationObserver', () => {
+  const root = { querySelectorAll: () => [] };
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+  });
+
+  observer.start();
+  const instance = FakeMutationObserver.latest;
+  observer.stop();
+
+  assert.equal(instance.disconnected, true);
+});
+
+test('scrollTowardOlder moves upward by viewport fraction', () => {
+  const calls = [];
+  const container = {
+    scrollTop: 1000,
+    clientHeight: 400,
+    scrollTo(options) {
+      calls.push(options);
+      this.scrollTop = options.top;
+    },
+  };
+
+  const result = scrollTowardOlder(container, { screens: 0.5 });
+
+  assert.deepEqual(result, {
+    before: 1000,
+    after: 800,
+    moved: true,
+  });
+  assert.equal(calls[0].top, 800);
+});
