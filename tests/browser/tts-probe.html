@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VoxThread TTS Probe</title>
+<style>
+body{font-family:sans-serif;padding:20px;background:#111;color:#eee}
+button{font-size:18px;margin:6px;padding:10px 14px}
+#status,#voices{white-space:pre-wrap;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>VoxThread TTS Probe</h1>
+<div id="status">ready</div>
+<button id="voicesBtn">Voices</button>
+<button id="speakBtn">Speak 20</button>
+<button id="stopBtn">Stop</button>
+<div id="voices"></div>
+<script>
+const status=document.getElementById('status');
+const voicesBox=document.getElementById('voices');
+const state={queued:0,started:0,ended:0,errors:[]};
+function render(){
+  const voices=speechSynthesis.getVoices();
+  status.textContent=`voices=${voices.length} queued=${state.queued} started=${state.started} ended=${state.ended} errors=${state.errors.length}`;
+  voicesBox.textContent=voices.slice(0,20).map(v=>`${v.lang} | ${v.name}`).join('\n');
+}
+function speak20(){
+  speechSynthesis.cancel();
+  state.queued=20; state.started=0; state.ended=0; state.errors=[];
+  for(let i=1;i<=20;i++){
+    const u=new SpeechSynthesisUtterance(`VoxThread Firefox test. Message number ${i}.`);
+    u.lang='en-US';
+    u.onstart=()=>{state.started++;render()};
+    u.onend=()=>{state.ended++;render()};
+    u.onerror=e=>{state.errors.push(String(e.error||'unknown'));render()};
+    speechSynthesis.speak(u);
+  }
+  render();
+}
+document.getElementById('voicesBtn').onclick=render;
+document.getElementById('speakBtn').onclick=speak20;
+document.getElementById('stopBtn').onclick=()=>speechSynthesis.cancel();
+speechSynthesis.addEventListener?.('voiceschanged',render);
+render();
+</script>
+</body>
+</html>
