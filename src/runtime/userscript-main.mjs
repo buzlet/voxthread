@@ -1,6 +1,10 @@
 // src/runtime/userscript-main.mjs
 import { extractTelegramBubbles } from '../telegram/dom-adapter.mjs';
-import { TelegramMessageObserver } from '../telegram/message-observer.mjs';
+import {
+  findTelegramMessageScroller,
+  scrollTowardNewer,
+  TelegramMessageObserver,
+} from '../telegram/message-observer.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
@@ -23,8 +27,10 @@ let pauseButton = null;
 let messageObserver = null;
 let latestQueuedTimestamp = null;
 let liveFollow = false;
+let prefetchPending = false;
+let lastPrefetchIndex = -1;
 
-const queue = new PlaybackQueue(() => renderStatus());
+const queue = new PlaybackQueue(onQueueChange);
 
 function loadVoiceOverrides() {
   try {
@@ -66,6 +72,35 @@ function renderedBubbles() {
   ].filter(isVisible);
 }
 
+function maybePrefetchNewer(snapshot) {
+  if (!liveFollow) return;
+  if (snapshot.status !== 'playing' && snapshot.status !== 'completed') return;
+
+  const remaining = snapshot.length - snapshot.index - 1;
+  if (remaining > 2) return;
+  if (prefetchPending) return;
+  if (lastPrefetchIndex === snapshot.index) return;
+
+  const scroller = findTelegramMessageScroller(activeChatRoot());
+  if (!scroller) return;
+
+  lastPrefetchIndex = snapshot.index;
+  prefetchPending = true;
+
+  requestAnimationFrame(() => {
+    scrollTowardNewer(scroller, { screens: 0.75 });
+
+    setTimeout(() => {
+      prefetchPending = false;
+    }, 450);
+  });
+}
+
+function onQueueChange(snapshot) {
+  renderStatus();
+  maybePrefetchNewer(snapshot);
+}
+
 function buildQueue() {
   const messages = extractTelegramBubbles(renderedBubbles());
   const segments = planSpeech(messages, {
@@ -76,6 +111,7 @@ function buildQueue() {
   queue.load(segments, {
     startMessageId: selectedMessageId,
   });
+  lastPrefetchIndex = -1;
 
   latestQueuedTimestamp = messages.reduce(
     (latest, message) =>
