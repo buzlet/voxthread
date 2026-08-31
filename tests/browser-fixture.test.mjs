@@ -34,3 +34,18 @@ test('sanitized Telegram group fixture survives adapter and planner', async () =
   assert.equal(plan[1].authorName, 'Боб');
   assert.equal(plan[1].text, 'Ссылка example.com');
 });
+
+test('sanitized Telegram private fixture survives adapter and planner', async () => {
+  const html = await fs.readFile(new URL('./fixtures/telegram-private-basic.html', import.meta.url), 'utf8');
+  const dom = new JSDOM(html);
+  const bubbles = [...dom.window.document.querySelectorAll('.bubble[data-mid]')];
+  const messages = extractTelegramBubbles(bubbles);
+  assert.equal(messages.length, 3);
+  assert.equal(messages[0].authorId, '5005');
+  assert.equal(messages[1].authorId, '5005');
+  assert.equal(messages[2].outgoing, true);
+  const plan = planSpeech(messages);
+  assert.equal(plan.length, 2);
+  assert.deepEqual(plan[0].messageIds, ['2001', '2002']);
+  assert.deepEqual(plan[1].messageIds, ['2003']);
+});

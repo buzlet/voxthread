@@ -11,7 +11,7 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-002 | DONE | P0 | Establish repeatable remote debugging of Edge Android from `u24` through Wireless ADB/CDP. |
 | TWR-003 | DONE | P0 | Build a diagnostic TTS userscript: enumerate voices and exercise a long queued `speechSynthesis` sequence. |
 | TWR-004 | DOING | P0 | Measure TTS behaviour foreground, background, screen-off and locked-screen; record exact failure modes. |
-| TWR-005 | DOING | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
+| TWR-005 | DONE | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
 | TWR-006 | DONE | P0 | Define and implement the normalized message model and Telegram adapter boundary. |
 | TWR-007 | DONE | P1 | Implement deterministic author-to-voice mapping with language compatibility and persistent overrides. |
 | TWR-008 | DONE | P1 | Implement speech planning: author-change announcements, merging, filtering and pauses. |
