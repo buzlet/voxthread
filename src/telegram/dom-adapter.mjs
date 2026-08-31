@@ -35,3 +35,64 @@ export function extractTelegramBubble(bubble) {
     source: bubble,
   });
 }
+
+function withAuthor(message, authorId, authorName) {
+  return normalizeMessage({
+    ...message,
+    authorId,
+    authorName,
+  });
+}
+
+export function extractTelegramBubbles(bubbles) {
+  const result = [];
+  const lastInboundAuthor = new Map();
+
+  for (const bubble of bubbles) {
+    let message = extractTelegramBubble(bubble);
+    if (!message) continue;
+
+    const chatId = message.chatId;
+
+    if (message.type === 'service' || message.outgoing) {
+      lastInboundAuthor.delete(chatId);
+      result.push(message);
+      continue;
+    }
+
+    if (message.authorId || message.authorName) {
+      lastInboundAuthor.set(chatId, {
+        authorId: message.authorId,
+        authorName: message.authorName,
+      });
+      result.push(message);
+      continue;
+    }
+
+    if (hasClass(bubble, 'hide-name')) {
+      const previous = lastInboundAuthor.get(chatId);
+      if (previous) {
+        message = withAuthor(
+          message,
+          previous.authorId,
+          previous.authorName,
+        );
+      }
+    }
+
+    if (!message.authorId && !message.authorName && !chatId.startsWith('-')) {
+      message = withAuthor(message, chatId, null);
+    }
+
+    if (message.authorId || message.authorName) {
+      lastInboundAuthor.set(chatId, {
+        authorId: message.authorId,
+        authorName: message.authorName,
+      });
+    }
+
+    result.push(message);
+  }
+
+  return result;
+}
