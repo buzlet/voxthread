@@ -7,6 +7,10 @@ import {
 } from '../telegram/message-observer.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
+import {
+  loadReaderPreferences,
+  saveReaderPreferences,
+} from '../core/preferences.mjs';
 import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
 import {
   createVoiceResolver,
@@ -21,12 +25,16 @@ const VERSION =
 const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
 const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
+const READER_PREFERENCES_KEY = 'voxthread.readerPreferences.v1';
 
 let selectionMode = false;
 let selectedMessageId = null;
 let selectedBubble = null;
 let statusElement = null;
 let pauseButton = null;
+let controlsElement = null;
+let settingsElement = null;
+let collapseButton = null;
 let messageObserver = null;
 let latestQueuedTimestamp = null;
 let liveFollow = false;
@@ -44,6 +52,10 @@ function loadVoiceOverrides() {
 }
 
 const voiceOverrides = loadVoiceOverrides();
+let readerPreferences = loadReaderPreferences(
+  localStorage,
+  READER_PREFERENCES_KEY,
+);
 
 const voiceResolver = createVoiceResolver({
   getVoices: () => window.speechSynthesis.getVoices(),
@@ -58,6 +70,40 @@ const player = new WebSpeechPlayer({
   voiceResolver,
   prosodyResolver: segment => prosodyForAuthor(segment.authorKey),
 });
+
+function speechPlanOptions() {
+  return {
+    mergeAdjacent: readerPreferences.mergeAdjacent,
+    announceAuthors: readerPreferences.announceAuthors,
+    contentPolicy: {
+      linkMode: readerPreferences.linkMode,
+      skipEmojiOnly: readerPreferences.skipEmojiOnly,
+      announceMedia: readerPreferences.announceMedia,
+    },
+  };
+}
+
+function applyPanelState() {
+  if (controlsElement) controlsElement.hidden = readerPreferences.panelCollapsed;
+  if (settingsElement) settingsElement.hidden = readerPreferences.panelCollapsed;
+  if (collapseButton) {
+    collapseButton.textContent = readerPreferences.panelCollapsed ? '+' : '−';
+    collapseButton.title = readerPreferences.panelCollapsed
+      ? 'Expand VoxThread'
+      : 'Collapse VoxThread';
+  }
+}
+
+function updateReaderPreferences(patch) {
+  readerPreferences = saveReaderPreferences(
+    localStorage,
+    READER_PREFERENCES_KEY,
+    { ...readerPreferences, ...patch },
+  );
+  applyPanelState();
+  renderStatus();
+  return readerPreferences;
+}
 
 function isVisible(element) {
   if (!element) return false;
@@ -106,10 +152,7 @@ function onQueueChange(snapshot) {
 
 function buildQueue() {
   const messages = extractTelegramBubbles(renderedBubbles());
-  const segments = planSpeech(messages, {
-    mergeAdjacent: true,
-    announceAuthors: true,
-  });
+  const segments = planSpeech(messages, speechPlanOptions());
 
   queue.load(segments, {
     startMessageId: selectedMessageId,
@@ -191,6 +234,42 @@ function makeButton(label, handler) {
   return button;
 }
 
+function makeCheckbox(label, key) {
+  const row = document.createElement('label');
+  row.style.cssText = 'display:flex;gap:7px;align-items:center;padding:3px 1px';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = Boolean(readerPreferences[key]);
+  input.addEventListener('change', () => {
+    updateReaderPreferences({ [key]: input.checked });
+  });
+  row.append(input, document.createTextNode(label));
+  return row;
+}
+
+function makeLinkModeSelect() {
+  const row = document.createElement('label');
+  row.style.cssText = 'display:flex;gap:7px;align-items:center;padding:3px 1px';
+  const select = document.createElement('select');
+  select.style.cssText = 'margin-left:auto;max-width:120px';
+  for (const [value, label] of [
+    ['domain', 'Domain'],
+    ['skip', 'Skip'],
+    ['verbatim', 'Full URL'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    option.selected = readerPreferences.linkMode === value;
+    select.append(option);
+  }
+  select.addEventListener('change', () => {
+    updateReaderPreferences({ linkMode: select.value });
+  });
+  row.append(document.createTextNode('Links'), select);
+  return row;
+}
+
 function handleNewMessages(messages) {
   const forward = messages.filter(message =>
     latestQueuedTimestamp === null
@@ -200,10 +279,7 @@ function handleNewMessages(messages) {
 
   if (!forward.length) return;
 
-  const segments = planSpeech(forward, {
-    mergeAdjacent: true,
-    announceAuthors: true,
-  });
+  const segments = planSpeech(forward, speechPlanOptions());
 
   if (!segments.length) return;
 
@@ -260,6 +336,15 @@ function createPanel() {
       outline: 3px solid #2aabee !important;
       outline-offset: 2px !important;
     }
+    #${PANEL_ID} button,
+    #${PANEL_ID} select,
+    #${PANEL_ID} input { font: inherit; }
+    #${PANEL_ID} summary {
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 2px;
+      font-weight: 600;
+    }
   `;
   document.head.append(style);
 
@@ -268,26 +353,44 @@ function createPanel() {
   panel.dataset.voxthreadVersion = VERSION;
   panel.style.cssText = [
     'position:fixed',
-    'right:10px',
-    'bottom:78px',
+    'right:8px',
+    'bottom:72px',
     'z-index:2147483647',
-    'max-width:330px',
-    'padding:9px',
+    'width:min(330px,calc(100vw - 16px))',
+    'padding:8px',
     'border-radius:10px',
-    'background:#15171ae8',
+    'background:#15171af0',
     'color:#fff',
     'font:12px sans-serif',
     'box-shadow:0 3px 14px #0008',
   ].join(';');
 
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:flex-start;gap:5px';
+
   statusElement = document.createElement('div');
-  statusElement.style.cssText = 'padding:3px 5px 6px;line-height:1.35';
+  statusElement.style.cssText = [
+    'flex:1',
+    'min-width:0',
+    'padding:3px 4px 6px',
+    'line-height:1.35',
+    'overflow-wrap:anywhere',
+  ].join(';');
+
+  collapseButton = makeButton('−', () => {
+    updateReaderPreferences({
+      panelCollapsed: !readerPreferences.panelCollapsed,
+    });
+  });
+  collapseButton.style.cssText += ';padding:4px 8px;margin:0';
+  header.append(statusElement, collapseButton);
+
+  controlsElement = document.createElement('div');
 
   const pick = makeButton('Pick start', () => {
     selectionMode = true;
     renderStatus();
   });
-
   const play = makeButton('Play', playFromSelection);
   pauseButton = makeButton('Pause', togglePause);
   const previous = makeButton('Prev', () => player.previous());
@@ -297,15 +400,43 @@ function createPanel() {
     messageObserver?.stop();
     player.stop();
   });
+  controlsElement.append(pick, play, pauseButton, previous, next, stop);
 
-  panel.append(statusElement, pick, play, pauseButton, previous, next, stop);
+  settingsElement = document.createElement('details');
+  settingsElement.style.cssText = [
+    'margin:4px 3px 0',
+    'padding:3px 5px',
+    'border-top:1px solid #ffffff24',
+  ].join(';');
+
+  const summary = document.createElement('summary');
+  summary.textContent = 'Settings';
+  const settingsBody = document.createElement('div');
+  settingsBody.style.cssText = 'padding:3px 1px 1px';
+  settingsBody.append(
+    makeCheckbox('Announce authors', 'announceAuthors'),
+    makeCheckbox('Merge same author', 'mergeAdjacent'),
+    makeCheckbox('Skip emoji-only', 'skipEmojiOnly'),
+    makeCheckbox('Speak media labels', 'announceMedia'),
+    makeCheckbox('Resume after wake', 'autoResumeOnVisible'),
+    makeLinkModeSelect(),
+  );
+
+  settingsElement.append(summary, settingsBody);
+  panel.append(header, controlsElement, settingsElement);
   document.body.append(panel);
+  applyPanelState();
   renderStatus();
 }
 
 document.addEventListener('click', onDocumentClick, true);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && player.lastError && queue.status === 'paused') {
+  if (
+    readerPreferences.autoResumeOnVisible
+    && !document.hidden
+    && player.lastError
+    && queue.status === 'paused'
+  ) {
     player.resume();
   }
 });
@@ -330,6 +461,12 @@ window.__voxThreadApp = {
   },
   getVoiceOverrides() {
     return { ...voiceOverrides };
+  },
+  setReaderPreferences(patch) {
+    return updateReaderPreferences(patch);
+  },
+  getReaderPreferences() {
+    return { ...readerPreferences };
   },
   get selectedMessageId() {
     return selectedMessageId;
