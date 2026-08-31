@@ -140,6 +140,7 @@ function renderStatus() {
     `segment: ${queue.index + 1}/${queue.length}`,
     selectedMessageId ? `start: ${selectedMessageId}` : 'start: first visible',
     currentIds.length ? `mid: ${currentIds[0]}` : '',
+    player.lastError ? `tts error: ${player.lastError}` : '',
   ].filter(Boolean).join(' · ');
 
   if (pauseButton) {
@@ -303,6 +304,11 @@ function createPanel() {
 }
 
 document.addEventListener('click', onDocumentClick, true);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && player.lastError && queue.status === 'paused') {
+    player.resume();
+  }
+});
 window.addEventListener('pagehide', () => {
   liveFollow = false;
   messageObserver?.stop();
