@@ -1,8 +1,8 @@
 // scripts/voxthread-dev-loader.user.js
 // ==UserScript==
-// @name         VoxThread Dev Loader
+// @name         VoxThread Diagnostics
 // @namespace    https://github.com/buzlet/voxthread
-// @version      0.1.0
+// @version      0.5.0
 // @description  Load the current VoxThread development bundle from u24.
 // @match        https://web.telegram.org/k/*
 // @run-at       document-idle
