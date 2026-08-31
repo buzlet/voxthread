@@ -10,7 +10,7 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-001 | DONE | P0 | Install/prepare Edge Android + Tampermonkey on the test device and verify userscript injection on Telegram Web K. |
 | TWR-002 | DONE | P0 | Establish repeatable remote debugging of Edge Android from `u24` through Wireless ADB/CDP. |
 | TWR-003 | DONE | P0 | Build a diagnostic TTS userscript: enumerate voices and exercise a long queued `speechSynthesis` sequence. |
-| TWR-004 | BLOCKED | P0 | Measure TTS behaviour foreground, background, screen-off and locked-screen; record exact failure modes. |
+| TWR-004 | DONE | P0 | Measure generic Android TTS behaviour foreground, background, screen-off and lock-like/keyguard transitions; record exact failure modes and no-skip recovery. |
 | TWR-005 | DONE | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
 | TWR-006 | DONE | P0 | Define and implement the normalized message model and Telegram adapter boundary. |
 | TWR-007 | DONE | P1 | Implement deterministic author-to-voice mapping with language compatibility and persistent overrides. |
@@ -20,9 +20,9 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-011 | DONE | P1 | Add minimal overlay UI and start-reading-from-selected-message interaction. |
 | TWR-012 | DONE | P1 | Define policy for replies, forwards, links, emoji-only messages, media and Telegram service messages. |
 | TWR-013 | DONE | P1 | Add Node unit tests and browser fixture/regression tests. |
-| TWR-014 | BLOCKED | P1 | Compare the same reader on Firefox Android and document background/TTS differences. |
+| TWR-014 | DONE | P1 | Compare the same reader on Firefox Android and document background/TTS differences. Firefox 154.0.1 on API 36 is preferred for background/screen-off continuity; Chrome remains a supported fallback/regression target. |
 | TWR-015 | DONE | P2 | Evaluate MediaSession/Bluetooth headset controls for playback. |
-| TWR-016 | BLOCKED | P2 | Build reproducible userscript bundling/install/update workflow. |
+| TWR-016 | DONE | P2 | Build reproducible userscript bundling/install/update workflow with stable production artifact, metadata verification and release SHA-256. |
 | TWR-017 | DONE | P2 | Select and apply the final public project/repository name: VoxThread; update paths, README and future GitHub remote metadata consistently. |
 | TWR-018 | DONE | P0 | Verify the first end-to-end path from visible Telegram message extraction to speaking the actual message text through TTS. |
 | TWR-019 | DONE | P1 | Add an Android Emulator as a secondary fast test target on `u24` with KVM, Chrome/CDP and reproducible launch helpers. |
@@ -36,3 +36,5 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-027 | DONE | P1 | Validate live-follow in real emulator Chrome: append a new Telegram bubble after queue completion and verify automatic queue extension/resume. |
 | TWR-028 | DONE | P1 | Validate real-touch Pick start interaction in emulator Chrome and verify playback starts from the selected Telegram message. |
 | TWR-029 | DONE | P1 | Add one-command emulator release gate covering unit, Web Speech, lifecycle, live-follow and real-touch selection regressions. |
+| TWR-030 | DONE | P0 | Isolate TTS behind a replaceable backend boundary so browser Web Speech can be replaced by remote/native speech without changes to Telegram, planner or queue layers. |
+| TWR-031 | BLOCKED | P0 | Final physical Galaxy acceptance: Samsung lock screen/Doze, phone-call and audio-focus behaviour, and real Tampermonkey install/update verification. Requires the physical device and is not a software-development blocker. |
