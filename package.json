@@ -9,7 +9,8 @@
     "test:emulator": "node scripts/emulator-smoke.mjs",
     "build:dev": "node scripts/build-userscript.mjs --dev",
     "test:emulator:runtime": "node scripts/cdp-runtime-smoke.mjs --play",
-    "test:emulator:lifecycle": "node scripts/emulator-lifecycle-regression.mjs"
+    "test:emulator:lifecycle": "node scripts/emulator-lifecycle-regression.mjs",
+    "test:emulator:live": "node scripts/emulator-live-follow-regression.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
