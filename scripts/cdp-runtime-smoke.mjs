@@ -137,7 +137,7 @@ if (selectMid !== null && !inspectOnly) {
 
   if (!targets) throw new Error(`Selection target not found: ${selectMid}`);
 
-  for (const point of [targets.pick, targets.bubble]) {
+  const touch = async point => {
     await cdp('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x: point.x, y: point.y }],
@@ -146,8 +146,30 @@ if (selectMid !== null && !inspectOnly) {
       type: 'touchEnd',
       touchPoints: [],
     });
-    await new Promise(resolve => setTimeout(resolve, 180));
+    await new Promise(resolve => setTimeout(resolve, 220));
+  };
+
+  await touch(targets.pick);
+
+  const pickState = await evaluate(`(() => ({
+    status: document.querySelector('#voxthread-reader > div:first-child > div:first-child')?.textContent || '',
+    hit: (() => {
+      const point = ${JSON.stringify(targets.pick)};
+      const element = document.elementFromPoint(point.x, point.y);
+      return {
+        tag: element?.tagName ?? null,
+        text: element?.textContent?.trim?.() ?? null,
+      };
+    })(),
+  }))()`);
+
+  if (!pickState.status.includes('tap message')) {
+    throw new Error(
+      `Pick-start touch failed: ${JSON.stringify(pickState)}`
+    );
   }
+
+  await touch(targets.bubble);
 
   const selected = await evaluate(
     'window.__voxThreadApp?.selectedMessageId ?? null'
