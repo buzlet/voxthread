@@ -137,6 +137,8 @@ const state = await evaluate(`(() => ({
   build: ${JSON.stringify(build)},
   queue: window.__voxThreadApp?.queue?.snapshot ?? null,
   playerError: window.__voxThreadApp?.player?.lastError ?? null,
+  chunkIndex: window.__voxThreadApp?.player?.chunkIndex ?? null,
+  chunkCount: window.__voxThreadApp?.player?.chunkCount ?? null,
   preferences: window.__voxThreadApp?.getReaderPreferences?.() ?? null,
   controlsHidden: document.querySelector('#voxthread-reader > div:nth-child(2)')?.hidden ?? null,
   settingsHidden: document.querySelector('#voxthread-reader > details')?.hidden ?? null,
