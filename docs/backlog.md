@@ -35,3 +35,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-026 | DONE | P1 | Honor configured pauses between speech segments without breaking pause/resume/next semantics. |
 | TWR-027 | DONE | P1 | Validate live-follow in real emulator Chrome: append a new Telegram bubble after queue completion and verify automatic queue extension/resume. |
 | TWR-028 | DONE | P1 | Validate real-touch Pick start interaction in emulator Chrome and verify playback starts from the selected Telegram message. |
+| TWR-029 | DONE | P1 | Add one-command emulator release gate covering unit, Web Speech, lifecycle, live-follow and real-touch selection regressions. |

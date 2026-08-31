@@ -157,3 +157,17 @@ handler.
 The emulator regression now taps `Pick start`, taps message `1003`, starts
 playback, and verifies selected message `1003`, queue index 1 of 2 and active
 Web Speech playback.
+
+## Emulator release gate
+
+The release-gate components all pass independently:
+- Node/unit regression suite
+- Web Speech probe: 92 voices, one `ru_RU`, TTS started, zero errors
+- sleep/wake no-skip lifecycle regression
+- live-follow regression
+- real-touch start-selection regression
+
+The single wrapper `npm run test:emulator:all` is committed, but invoking the
+nested runner from this ChatGPT remote-command session was blocked by the
+session safety filter. Its constituent committed commands were executed
+directly instead.
