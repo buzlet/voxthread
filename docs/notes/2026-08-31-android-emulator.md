@@ -30,3 +30,26 @@ The committed `npm run test:emulator` wrapper automates the same smoke flow.
 The remote command policy in the current ChatGPT session blocked invoking that
 wrapper as one opaque command, so its constituent committed commands were
 executed individually and passed.
+
+## Bundled runtime smoke
+
+The real bundled `VoxThread 0.7.0` was injected through CDP into sanitized
+Telegram DOM fixtures running in emulator Chrome.
+
+Basic fixture:
+- 3 normalized messages
+- 2 speech segments
+- overlay present
+- real CDP touch on `Play`
+- `speechSynthesis.speaking=true`
+- no player error
+
+Long lifecycle fixture:
+- 12 messages / 12 speech segments
+- screen-off interrupted speech while segment 2 was current
+- VoxThread changed to `paused` without advancing past the failed segment
+- `playerError=interrupted`
+- after waking the emulator, `visibilitychange` automatically retried the same
+  segment and playback returned to `playing`
+
+This validates the no-silent-skip recovery path in a real Chromium runtime.

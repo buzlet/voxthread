@@ -27,4 +27,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-018 | DONE | P0 | Verify the first end-to-end path from visible Telegram message extraction to speaking the actual message text through TTS. |
 | TWR-019 | DONE | P1 | Add an Android Emulator as a secondary fast test target on `u24` with KVM, Chrome/CDP and reproducible launch helpers. |
 | TWR-020 | DONE | P0 | Preserve the current message on Web Speech runtime errors so sleep/audio-focus failures cannot silently skip unread content. |
-| TWR-021 | DOING | P1 | Add a real-Chrome emulator smoke test for the bundled VoxThread runtime against sanitized Telegram DOM fixtures. |
+| TWR-021 | DONE | P1 | Add a real-Chrome emulator smoke test for the bundled VoxThread runtime against sanitized Telegram DOM fixtures. |
