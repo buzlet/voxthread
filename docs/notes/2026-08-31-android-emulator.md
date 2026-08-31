@@ -146,3 +146,14 @@ on automatic selection.
 When a browser exposes no voices, the UI explicitly reports that the browser
 voice list is unavailable and VoxThread continues with deterministic rate/pitch
 variation as its fallback.
+
+## Real-touch start selection
+
+`Input.synthesizeTapGesture` is required for a faithful CDP tap on arbitrary
+Telegram message content. Raw `dispatchTouchEvent` reached the correct DOM
+element but did not synthesize the compatibility click used by the selection
+handler.
+
+The emulator regression now taps `Pick start`, taps message `1003`, starts
+playback, and verifies selected message `1003`, queue index 1 of 2 and active
+Web Speech playback.
