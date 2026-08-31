@@ -23,3 +23,10 @@ Therefore Edge Android Web Speech can speak queued utterances using its default 
 Current Edge behaviour does not provide selectable `SpeechSynthesisVoice` objects for deterministic per-author voice assignment.
 Pitch/rate variation remains possible, but true per-author voice selection requires another browser/runtime if this result persists.
 Firefox comparison under TWR-014 is therefore important in addition to the background test.
+
+## Clarification from audible observation
+
+The 20 utterances were synthetic diagnostics such as `Message number 1`, `Message number 2`, and so on, spoken in English.
+No Telegram message text was spoken during either of the two audible queue runs.
+The `20/20` result therefore proves queue execution and background continuity only; it does not prove the end-to-end Telegram-message-to-TTS path.
+
