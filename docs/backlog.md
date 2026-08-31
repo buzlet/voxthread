@@ -9,7 +9,7 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 |---|---|---:|---|
 | TWR-001 | DONE | P0 | Install/prepare Edge Android + Tampermonkey on the test device and verify userscript injection on Telegram Web K. |
 | TWR-002 | DONE | P0 | Establish repeatable remote debugging of Edge Android from `u24` through Wireless ADB/CDP. |
-| TWR-003 | TODO | P0 | Build a diagnostic TTS userscript: enumerate voices and exercise a long queued `speechSynthesis` sequence. |
+| TWR-003 | DOING | P0 | Build a diagnostic TTS userscript: enumerate voices and exercise a long queued `speechSynthesis` sequence. |
 | TWR-004 | TODO | P0 | Measure TTS behaviour foreground, background, screen-off and locked-screen; record exact failure modes. |
 | TWR-005 | DOING | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
 | TWR-006 | TODO | P0 | Define and implement the normalized message model and Telegram adapter boundary. |
