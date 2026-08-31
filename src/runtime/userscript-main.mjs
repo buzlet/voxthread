@@ -11,12 +11,7 @@ import {
   loadReaderPreferences,
   saveReaderPreferences,
 } from '../core/preferences.mjs';
-import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
-import {
-  createVoiceResolver,
-  inferLanguageHint,
-  prosodyForAuthor,
-} from '../tts/voice-map.mjs';
+import { WebSpeechBackend } from '../tts/web-speech-backend.mjs';
 
 const VERSION =
   typeof __VOXTHREAD_VERSION__ === 'undefined'
@@ -59,24 +54,16 @@ let readerPreferences = loadReaderPreferences(
   READER_PREFERENCES_KEY,
 );
 
-const voiceResolver = createVoiceResolver({
-  getVoices: () => window.speechSynthesis.getVoices(),
-  overrides: voiceOverrides,
-  languageForSegment: segment => inferLanguageHint(segment.text),
-});
-
-const player = new WebSpeechPlayer({
-  queue,
+const ttsBackend = new WebSpeechBackend({
   speechSynthesis: window.speechSynthesis,
   Utterance: window.SpeechSynthesisUtterance,
-  voiceResolver,
-  prosodyResolver: segment => prosodyForAuthor(segment.authorKey),
+  voiceOverrides,
 });
+const player = ttsBackend.createPlayer({ queue });
 
-
-function setVoiceOverride(authorKey, voiceURI) {
-  if (!voiceURI) delete voiceOverrides[authorKey];
-  else voiceOverrides[authorKey] = String(voiceURI);
+function setVoiceOverride(authorKey, voiceId) {
+  if (!voiceId) delete voiceOverrides[authorKey];
+  else voiceOverrides[authorKey] = String(voiceId);
 
   localStorage.setItem(
     VOICE_OVERRIDES_KEY,
@@ -85,32 +72,17 @@ function setVoiceOverride(authorKey, voiceURI) {
   renderVoiceSettings();
 }
 
-function primaryLanguage(value) {
-  return String(value ?? '').toLowerCase().split(/[-_]/)[0] || null;
-}
-
-function compatibleVoicesForSegment(segment, voices) {
-  const language = primaryLanguage(inferLanguageHint(segment?.text));
-  if (!language) return voices;
-
-  const compatible = voices.filter(voice =>
-    primaryLanguage(voice.lang) === language
-  );
-
-  return compatible.length ? compatible : voices;
-}
-
 function renderVoiceSettings() {
   if (!voiceSettingsElement) return;
 
   voiceSettingsElement.replaceChildren();
-  const voices = window.speechSynthesis.getVoices();
+  const voices = ttsBackend.listVoices();
 
   const summary = document.createElement('div');
   summary.style.cssText = 'padding:4px 1px;font-weight:600';
   summary.textContent = voices.length
     ? `Voices: ${voices.length}`
-    : 'Voices: browser list unavailable; using rate/pitch fallback';
+    : 'Voices: provider list unavailable; using fallback prosody';
   voiceSettingsElement.append(summary);
 
   if (!voices.length || !lastBuiltSegments.length) return;
@@ -137,10 +109,10 @@ function renderVoiceSettings() {
     automatic.textContent = 'Automatic';
     select.append(automatic);
 
-    for (const voice of compatibleVoicesForSegment(segment, voices)) {
+    for (const voice of ttsBackend.listVoices(segment)) {
       const option = document.createElement('option');
-      option.value = voice.voiceURI || voice.name;
-      option.textContent = `${voice.name} (${voice.lang})`;
+      option.value = voice.id;
+      option.textContent = `${voice.name} (${voice.lang || 'unknown'})`;
       select.append(option);
     }
 
@@ -262,7 +234,7 @@ function buildQueue() {
 }
 
 function diagnosticsSnapshot() {
-  const voices = window.speechSynthesis.getVoices();
+  const tts = ttsBackend.diagnostics(player);
 
   return Object.freeze({
     version: VERSION,
@@ -277,18 +249,11 @@ function diagnosticsSnapshot() {
       liveFollow,
       visibleMessages: renderedBubbles().length,
     }),
-    tts: Object.freeze({
-      speaking: Boolean(window.speechSynthesis.speaking),
-      pending: Boolean(window.speechSynthesis.pending),
-      paused: Boolean(window.speechSynthesis.paused),
-      error: player.lastError,
-      chunkIndex: player.chunkIndex,
-      chunkCount: player.chunkCount,
-    }),
+    tts,
     voices: Object.freeze({
-      count: voices.length,
+      count: tts.voiceCount,
       overrides: Object.keys(voiceOverrides).length,
-      fallbackProsody: voices.length === 0,
+      fallbackProsody: tts.fallbackProsody,
     }),
     preferences: Object.freeze({ ...readerPreferences }),
     page: Object.freeze({
@@ -588,7 +553,7 @@ function createPanel() {
   renderStatus();
 }
 
-window.speechSynthesis.addEventListener?.('voiceschanged', renderVoiceSettings);
+ttsBackend.onVoicesChanged(renderVoiceSettings);
 document.addEventListener('click', onDocumentClick, true);
 document.addEventListener('visibilitychange', () => {
   if (
@@ -610,6 +575,7 @@ window.__voxThreadApp = {
   version: VERSION,
   queue,
   player,
+  ttsBackend,
   buildQueue,
   setVoiceOverride,
   getVoiceOverrides() {
