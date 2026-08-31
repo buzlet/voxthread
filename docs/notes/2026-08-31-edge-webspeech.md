@@ -29,3 +29,11 @@ Firefox comparison under TWR-014 is therefore important in addition to the backg
 The 20 utterances were synthetic diagnostics such as `Message number 1`, `Message number 2`, and so on, spoken in English.
 No Telegram message text was spoken during either of the two audible queue runs.
 The `20/20` result therefore proves queue execution and background continuity only; it does not prove the end-to-end Telegram-message-to-TTS path.
+
+## Real Telegram end-to-end speech
+
+Userscript `voxthread-003.user.js` added `Speak Telegram`.
+The test opened peer `7769142292`, extracted one visible real Telegram message (`mid=59873`) from `.translatable-message`, and passed that text directly to `SpeechSynthesisUtterance`.
+No message text was emitted to the terminal or committed.
+Final counters were `queued=1`, `started=1`, `ended=1`, `errors=[]`.
+This is the first confirmed end-to-end Telegram DOM -> extracted message text -> Android Web Speech execution.
