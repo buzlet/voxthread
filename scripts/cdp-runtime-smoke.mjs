@@ -138,13 +138,10 @@ if (selectMid !== null && !inspectOnly) {
   if (!targets) throw new Error(`Selection target not found: ${selectMid}`);
 
   const touch = async point => {
-    await cdp('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: point.x, y: point.y }],
-    });
-    await cdp('Input.dispatchTouchEvent', {
-      type: 'touchEnd',
-      touchPoints: [],
+    await cdp('Input.synthesizeTapGesture', {
+      x: point.x,
+      y: point.y,
+      duration: 80,
     });
     await new Promise(resolve => setTimeout(resolve, 220));
   };
