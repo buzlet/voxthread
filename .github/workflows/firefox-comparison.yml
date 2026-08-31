@@ -1,0 +1,85 @@
+name: Firefox Android comparison
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/firefox-comparison.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Resolve Firefox Android release
+        id: firefox
+        shell: bash
+        run: |
+          curl -fsSL https://product-details.mozilla.org/1.0/mobile_android.json -o /tmp/mobile_android.json
+          VERSION="$(jq -r '
+            .releases
+            | to_entries
+            | map(select(
+                .value.product == "fenix"
+                and (.value.version | test("^[0-9]+(\\.[0-9]+){1,2}$"))
+              ))
+            | sort_by(.value.date)
+            | last.value.version
+          ' /tmp/mobile_android.json)"
+          test -n "$VERSION" && test "$VERSION" != "null"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Firefox Android $VERSION"
+      - name: Restore Firefox APK cache
+        id: firefox-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/firefox-${{ steps.firefox.outputs.version }}.apk
+          key: fenix-universal-${{ steps.firefox.outputs.version }}
+      - name: Download Firefox Android APK
+        if: steps.firefox-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          VERSION='${{ steps.firefox.outputs.version }}'
+          URL="https://archive.mozilla.org/pub/fenix/releases/$VERSION/android/fenix-$VERSION-android/fenix-$VERSION.multi.android-universal.apk"
+          curl -fL --retry 3 --retry-delay 3 "$URL" -o "/tmp/firefox-$VERSION.apk"
+      - name: Enable KVM access
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Compare Chrome and Firefox reader TTS
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 36
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 2048
+          emulator-options: >-
+            -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+            -no-snapshot
+          script: |
+            adb shell pm disable-user --user 0 com.android.vending >/dev/null 2>&1 || true
+            adb shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+            adb install -r "/tmp/firefox-${{ steps.firefox.outputs.version }}.apk"
+            adb shell am set-debug-app --persistent com.android.chrome
+            adb shell 'echo "chrome --disable-fre --no-default-browser-check --no-first-run --skip_first_run_ui --disable-features=Translate" > /data/local/tmp/chrome-command-line'
+            adb shell am force-stop com.android.chrome
+            node scripts/emulator-browser-tts-comparison.mjs
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-android-comparison-${{ github.run_id }}
+          path: artifacts/browser-tts-comparison.json
+          if-no-files-found: ignore
+          retention-days: 14
