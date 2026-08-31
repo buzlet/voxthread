@@ -29,8 +29,8 @@ Do not reconstruct project history from chat. The repository is authoritative.
 
 ## Current validated baseline
 
-At handoff, `main` and `emulator-dev` are synchronized at commit `68fa4ee`.
-The tree is clean and has no unresolved merge entries.
+At handoff, `main` and `emulator-dev` are synchronized. The tree is clean
+and has no unresolved merge entries.
 
 Validated locally before handoff:
 
