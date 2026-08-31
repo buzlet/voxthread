@@ -99,6 +99,12 @@ test('integrated userscript selects a message and starts real queue', async () =
 
     assert.equal(window.__voxThreadApp.selectedMessageId, '1001');
 
+    const diagnostics = window.__voxThreadApp.getDiagnostics();
+    const diagnosticsJson = JSON.stringify(diagnostics);
+    assert.equal(diagnostics.reader.selectedStart, true);
+    assert.equal(diagnosticsJson.includes('Первое сообщение'), false);
+    assert.equal(diagnosticsJson.includes('Алиса'), false);
+
     buttonByText(window.document, 'Play').click();
 
     assert.equal(window.__voxThreadApp.queue.status, 'playing');

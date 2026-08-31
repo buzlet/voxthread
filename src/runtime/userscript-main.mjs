@@ -261,6 +261,43 @@ function buildQueue() {
   };
 }
 
+function diagnosticsSnapshot() {
+  const voices = window.speechSynthesis.getVoices();
+
+  return Object.freeze({
+    version: VERSION,
+    queue: Object.freeze({
+      status: queue.status,
+      index: queue.index,
+      length: queue.length,
+      currentMessageCount: queue.current?.messageIds?.length ?? 0,
+    }),
+    reader: Object.freeze({
+      selectedStart: Boolean(selectedMessageId),
+      liveFollow,
+      visibleMessages: renderedBubbles().length,
+    }),
+    tts: Object.freeze({
+      speaking: Boolean(window.speechSynthesis.speaking),
+      pending: Boolean(window.speechSynthesis.pending),
+      paused: Boolean(window.speechSynthesis.paused),
+      error: player.lastError,
+      chunkIndex: player.chunkIndex,
+      chunkCount: player.chunkCount,
+    }),
+    voices: Object.freeze({
+      count: voices.length,
+      overrides: Object.keys(voiceOverrides).length,
+      fallbackProsody: voices.length === 0,
+    }),
+    preferences: Object.freeze({ ...readerPreferences }),
+    page: Object.freeze({
+      hidden: Boolean(document.hidden),
+      visibilityState: document.visibilityState,
+    }),
+  });
+}
+
 function renderStatus() {
   if (!statusElement) return;
 
@@ -521,6 +558,28 @@ function createPanel() {
   ].join(';');
   settingsBody.append(voiceSettingsElement);
 
+  const diagnosticsButton = makeButton('Copy diagnostics', async () => {
+    const payload = JSON.stringify(diagnosticsSnapshot(), null, 2);
+    const oldLabel = diagnosticsButton.textContent;
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable');
+      }
+
+      await navigator.clipboard.writeText(payload);
+      diagnosticsButton.textContent = 'Copied';
+    } catch {
+      console.info('[VoxThread diagnostics]', payload);
+      diagnosticsButton.textContent = 'Logged';
+    }
+
+    setTimeout(() => {
+      diagnosticsButton.textContent = oldLabel;
+    }, 1200);
+  });
+
+  settingsBody.append(diagnosticsButton);
   settingsElement.append(summary, settingsBody);
   panel.append(header, controlsElement, settingsElement);
   document.body.append(panel);
@@ -562,6 +621,7 @@ window.__voxThreadApp = {
   getReaderPreferences() {
     return { ...readerPreferences };
   },
+  getDiagnostics: diagnosticsSnapshot,
   get selectedMessageId() {
     return selectedMessageId;
   },

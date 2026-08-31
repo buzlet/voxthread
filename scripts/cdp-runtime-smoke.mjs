@@ -216,6 +216,7 @@ const state = await evaluate(`(() => ({
   chunkIndex: window.__voxThreadApp?.player?.chunkIndex ?? null,
   chunkCount: window.__voxThreadApp?.player?.chunkCount ?? null,
   preferences: window.__voxThreadApp?.getReaderPreferences?.() ?? null,
+  diagnostics: window.__voxThreadApp?.getDiagnostics?.() ?? null,
   voiceOverrideResult: ${JSON.stringify(voiceOverrideResult)},
   voiceOverrides: window.__voxThreadApp?.getVoiceOverrides?.() ?? null,
   voiceSummary: document.querySelector('#voxthread-voice-settings > div')?.textContent ?? null,
