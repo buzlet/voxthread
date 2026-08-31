@@ -108,3 +108,18 @@ short second message. VoxThread split the first speech segment into 8 Web
 Speech utterances. In real emulator Chrome the queue remained on message 4001
 while `chunkIndex` advanced from 0 to 1, confirming that chunk completion does
 not prematurely advance the Telegram message queue.
+
+## Voice controls
+
+Real emulator Chrome exposed 92 Web Speech voices. For Russian text only one
+compatible `ru_RU` voice was exposed. VoxThread rendered one author selector
+per speech author, persisted an explicit override for `id:77`, and returned the
+same override on a later inspection. When a browser exposes no compatible
+multiple voices, deterministic per-author rate/pitch remains the fallback.
+
+## Inter-segment pauses
+
+The Web Speech player now honors `pauseAfterMs` between queue segments while
+preserving pause/resume/next semantics. Unit tests cover delay, pausing during
+the delay and navigation while paused. The full emulator lifecycle regression
+also passes with the delayed transition implementation.
