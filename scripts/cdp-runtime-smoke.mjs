@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const shouldPlay = process.argv.includes('--play');
+const inspectOnly = process.argv.includes('--inspect');
 
 const pages = await fetch(`${base}/json/list`).then(response => response.json());
 const page = pages
@@ -53,13 +54,19 @@ async function evaluate(expression) {
   return result.result?.value;
 }
 
-if (!await evaluate('Boolean(window.__voxThreadApp)')) {
+if (inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
+  throw new Error('VoxThread runtime is not injected');
+}
+
+if (!inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
   const bundle = await fs.readFile('dist/voxthread-dev.js', 'utf8');
   await evaluate(bundle);
   await new Promise(resolve => setTimeout(resolve, 150));
 }
 
-const build = await evaluate('window.__voxThreadApp.buildQueue()');
+const build = inspectOnly
+  ? null
+  : await evaluate('window.__voxThreadApp.buildQueue()');
 
 if (shouldPlay) {
   const playButton = await evaluate(`(() => {
