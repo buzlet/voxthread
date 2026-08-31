@@ -127,3 +127,44 @@ test('can prime current DOM without emitting initial messages', () => {
 
   assert.deepEqual(batches, [['11']]);
 });
+
+test('finds Telegram Web K bubbles scroll container', async () => {
+  const { findTelegramMessageScroller } = await import(
+    '../src/telegram/message-observer.mjs'
+  );
+
+  const expected = { id: 'scroller' };
+  const root = {
+    querySelector(selector) {
+      return selector === '.bubbles-scrollable' ? expected : null;
+    },
+  };
+
+  assert.equal(findTelegramMessageScroller(root), expected);
+});
+
+test('scrollTowardNewer moves toward scroll end without overshoot', async () => {
+  const { scrollTowardNewer } = await import(
+    '../src/telegram/message-observer.mjs'
+  );
+
+  const calls = [];
+  const container = {
+    scrollTop: 700,
+    clientHeight: 400,
+    scrollHeight: 1200,
+    scrollTo(options) {
+      calls.push(options);
+      this.scrollTop = options.top;
+    },
+  };
+
+  const result = scrollTowardNewer(container, { screens: 0.5 });
+
+  assert.deepEqual(result, {
+    before: 700,
+    after: 800,
+    moved: true,
+  });
+  assert.equal(calls[0].top, 800);
+});

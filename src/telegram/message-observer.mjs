@@ -85,3 +85,30 @@ export function scrollTowardOlder(container, { screens = 0.9 } = {}) {
     moved: target !== before,
   };
 }
+
+export function findTelegramMessageScroller(root = document) {
+  return root.querySelector?.('.bubbles-scrollable') ?? null;
+}
+
+export function scrollTowardNewer(container, { screens = 0.9 } = {}) {
+  if (!container) throw new TypeError('scroll container is required');
+
+  const before = Number(container.scrollTop || 0);
+  const height = Number(container.clientHeight || 0);
+  const scrollHeight = Number(container.scrollHeight || 0);
+  const distance = Math.max(1, height * screens);
+  const maxTop = Math.max(0, scrollHeight - height);
+  const target = Math.min(maxTop, before + distance);
+
+  if (typeof container.scrollTo === 'function') {
+    container.scrollTo({ top: target, behavior: 'auto' });
+  } else {
+    container.scrollTop = target;
+  }
+
+  return {
+    before,
+    after: target,
+    moved: target !== before,
+  };
+}
