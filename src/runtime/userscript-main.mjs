@@ -1,0 +1,190 @@
+// src/runtime/userscript-main.mjs
+import { extractTelegramBubbles } from '../telegram/dom-adapter.mjs';
+import { planSpeech } from '../core/speech-planner.mjs';
+import { PlaybackQueue } from '../core/playback-queue.mjs';
+import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
+
+const VERSION = '0.5.0';
+const PANEL_ID = 'voxthread-reader';
+const SELECTED_CLASS = 'voxthread-selected-message';
+
+let selectionMode = false;
+let selectedMessageId = null;
+let selectedBubble = null;
+let statusElement = null;
+let pauseButton = null;
+
+const queue = new PlaybackQueue(() => renderStatus());
+
+const player = new WebSpeechPlayer({
+  queue,
+  speechSynthesis: window.speechSynthesis,
+  Utterance: window.SpeechSynthesisUtterance,
+});
+
+function isVisible(element) {
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  return element.offsetParent !== null && rect.width > 0 && rect.height > 0;
+}
+
+function renderedBubbles() {
+  const activeChat = document.querySelector('.chat.tabs-tab.active');
+  const root = activeChat || document;
+  return [...root.querySelectorAll('.bubble[data-mid]')].filter(isVisible);
+}
+
+function buildQueue() {
+  const messages = extractTelegramBubbles(renderedBubbles());
+  const segments = planSpeech(messages, {
+    mergeAdjacent: true,
+    announceAuthors: true,
+  });
+
+  queue.load(segments, {
+    startMessageId: selectedMessageId,
+  });
+
+  return {
+    messages: messages.length,
+    segments: segments.length,
+  };
+}
+
+function renderStatus() {
+  if (!statusElement) return;
+
+  const currentIds = queue.current?.messageIds ?? [];
+  statusElement.textContent = [
+    `VoxThread ${VERSION}`,
+    selectionMode ? 'tap message' : `state: ${queue.status}`,
+    `segment: ${queue.index + 1}/${queue.length}`,
+    selectedMessageId ? `start: ${selectedMessageId}` : 'start: first visible',
+    currentIds.length ? `mid: ${currentIds[0]}` : '',
+  ].filter(Boolean).join(' · ');
+
+  if (pauseButton) {
+    pauseButton.textContent = queue.status === 'paused' ? 'Resume' : 'Pause';
+  }
+}
+
+function clearSelectedBubble() {
+  selectedBubble?.classList?.remove(SELECTED_CLASS);
+  selectedBubble = null;
+}
+
+function selectBubble(bubble) {
+  clearSelectedBubble();
+  selectedBubble = bubble;
+  selectedBubble.classList.add(SELECTED_CLASS);
+  selectedMessageId = bubble.dataset.mid || null;
+  selectionMode = false;
+  renderStatus();
+}
+
+function onDocumentClick(event) {
+  if (!selectionMode) return;
+
+  const bubble = event.target.closest?.('.bubble[data-mid]');
+  if (!bubble || !isVisible(bubble)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  selectBubble(bubble);
+}
+
+function makeButton(label, handler) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.addEventListener('click', handler);
+  button.style.cssText = [
+    'border:0',
+    'border-radius:7px',
+    'padding:7px 9px',
+    'margin:3px',
+    'background:#2aabee',
+    'color:#fff',
+    'font-weight:600',
+  ].join(';');
+  return button;
+}
+
+function playFromSelection() {
+  const result = buildQueue();
+  if (!result.segments) {
+    renderStatus();
+    return;
+  }
+  player.play();
+}
+
+function togglePause() {
+  if (queue.status === 'paused') player.resume();
+  else player.pause();
+  renderStatus();
+}
+
+function createPanel() {
+  document.getElementById(PANEL_ID)?.remove();
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .${SELECTED_CLASS} {
+      outline: 3px solid #2aabee !important;
+      outline-offset: 2px !important;
+    }
+  `;
+  document.head.append(style);
+
+  const panel = document.createElement('section');
+  panel.id = PANEL_ID;
+  panel.dataset.voxthreadVersion = VERSION;
+  panel.style.cssText = [
+    'position:fixed',
+    'right:10px',
+    'bottom:78px',
+    'z-index:2147483647',
+    'max-width:330px',
+    'padding:9px',
+    'border-radius:10px',
+    'background:#15171ae8',
+    'color:#fff',
+    'font:12px sans-serif',
+    'box-shadow:0 3px 14px #0008',
+  ].join(';');
+
+  statusElement = document.createElement('div');
+  statusElement.style.cssText = 'padding:3px 5px 6px;line-height:1.35';
+
+  const pick = makeButton('Pick start', () => {
+    selectionMode = true;
+    renderStatus();
+  });
+
+  const play = makeButton('Play', playFromSelection);
+  pauseButton = makeButton('Pause', togglePause);
+  const previous = makeButton('Prev', () => player.previous());
+  const next = makeButton('Next', () => player.next());
+  const stop = makeButton('Stop', () => player.stop());
+
+  panel.append(statusElement, pick, play, pauseButton, previous, next, stop);
+  document.body.append(panel);
+  renderStatus();
+}
+
+document.addEventListener('click', onDocumentClick, true);
+window.addEventListener('pagehide', () => player.stop(), { once: true });
+
+window.__voxThreadApp = {
+  version: VERSION,
+  queue,
+  player,
+  buildQueue,
+  get selectedMessageId() {
+    return selectedMessageId;
+  },
+};
+
+createPanel();
