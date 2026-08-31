@@ -2,6 +2,8 @@
 
 export class WebSpeechPlayer {
   #generation = 0;
+  #restartOnResume = false;
+  #lastError = null;
 
   constructor({
     queue,
@@ -43,14 +45,18 @@ export class WebSpeechPlayer {
 
     utterance.onend = () => {
       if (generation !== this.#generation) return;
+      this.#lastError = null;
+      this.#restartOnResume = false;
       this.queue.advance();
       this.#speakCurrent();
     };
 
-    utterance.onerror = () => {
+    utterance.onerror = event => {
       if (generation !== this.#generation) return;
-      this.queue.advance();
-      this.#speakCurrent();
+      this.#lastError = String(event?.error || 'unknown');
+      this.#restartOnResume = true;
+      this.#generation += 1;
+      this.queue.pause();
     };
 
     this.speechSynthesis.speak(utterance);
@@ -58,6 +64,8 @@ export class WebSpeechPlayer {
 
   play() {
     this.#generation += 1;
+    this.#restartOnResume = false;
+    this.#lastError = null;
     this.speechSynthesis.cancel();
     this.queue.play();
     this.#speakCurrent();
@@ -69,18 +77,31 @@ export class WebSpeechPlayer {
   }
 
   resume() {
+    if (this.queue.status !== 'paused') return;
+
     this.queue.resume();
+    if (this.#restartOnResume) {
+      this.#restartOnResume = false;
+      this.#generation += 1;
+      this.#speakCurrent();
+      return;
+    }
+
     this.speechSynthesis.resume();
   }
 
   stop() {
     this.#generation += 1;
+    this.#restartOnResume = false;
+    this.#lastError = null;
     this.speechSynthesis.cancel();
     this.queue.stop();
   }
 
   next() {
     const wasPlaying = this.queue.status === 'playing';
+    this.#restartOnResume = false;
+    this.#lastError = null;
     this.#generation += 1;
     this.speechSynthesis.cancel();
     this.queue.next();
@@ -91,8 +112,14 @@ export class WebSpeechPlayer {
     }
   }
 
+  get lastError() {
+    return this.#lastError;
+  }
+
   previous() {
     const wasPlaying = this.queue.status === 'playing';
+    this.#restartOnResume = false;
+    this.#lastError = null;
     this.#generation += 1;
     this.speechSynthesis.cancel();
     this.queue.previous();

@@ -113,3 +113,53 @@ test('next while playing cancels and speaks next segment', () => {
   stale.onend();
   assert.equal(queue.index, 1);
 });
+
+
+test('speech error pauses without skipping current segment and resume retries it', () => {
+  const queue = new PlaybackQueue();
+  queue.load(segments);
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+  });
+
+  player.play();
+  const failed = synth.spoken[0];
+  failed.onerror({ error: 'synthesis-failed' });
+
+  assert.equal(queue.status, 'paused');
+  assert.equal(queue.index, 0);
+  assert.equal(player.lastError, 'synthesis-failed');
+  assert.equal(synth.spoken.length, 1);
+
+  player.resume();
+
+  assert.equal(queue.status, 'playing');
+  assert.equal(queue.index, 0);
+  assert.equal(synth.spoken.length, 2);
+  assert.equal(synth.spoken[1].text, 'Алиса. Привет');
+
+  synth.spoken[1].onend();
+  assert.equal(queue.index, 1);
+  assert.equal(player.lastError, null);
+});
+
+test('ordinary pause and resume does not restart the current utterance', () => {
+  const queue = new PlaybackQueue();
+  queue.load(segments);
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+  });
+
+  player.play();
+  player.pause();
+  player.resume();
+
+  assert.equal(synth.spoken.length, 1);
+  assert.equal(synth.paused, false);
+});
