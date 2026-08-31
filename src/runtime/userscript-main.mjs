@@ -6,6 +6,10 @@ import {
   TelegramMessageObserver,
 } from '../telegram/message-observer.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
+import {
+  loadReaderPreferences,
+  saveReaderPreferences,
+} from '../core/preferences.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import {
   loadReaderPreferences,
@@ -26,6 +30,7 @@ const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
 const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
 const READER_PREFERENCES_KEY = 'voxthread.readerPreferences.v1';
+const READER_PREFERENCES_KEY = 'voxthread.readerPreferences.v1';
 
 let selectionMode = false;
 let selectedMessageId = null;
@@ -40,6 +45,14 @@ let latestQueuedTimestamp = null;
 let liveFollow = false;
 let prefetchPending = false;
 let lastPrefetchIndex = -1;
+let controlsElement = null;
+let optionsElement = null;
+let collapseButton = null;
+let optionsButton = null;
+let readerPreferences = loadReaderPreferences(
+  localStorage,
+  READER_PREFERENCES_KEY,
+);
 
 const queue = new PlaybackQueue(onQueueChange);
 
@@ -70,6 +83,33 @@ const player = new WebSpeechPlayer({
   voiceResolver,
   prosodyResolver: segment => prosodyForAuthor(segment.authorKey),
 });
+
+
+function plannerOptions() {
+  return {
+    mergeAdjacent: readerPreferences.mergeAdjacent,
+    announceAuthors: readerPreferences.announceAuthors,
+    contentPolicy: {
+      linkMode: readerPreferences.linkMode,
+      skipEmojiOnly: readerPreferences.skipEmojiOnly,
+      announceMedia: readerPreferences.announceMedia,
+    },
+  };
+}
+
+function setReaderPreference(key, value) {
+  readerPreferences = saveReaderPreferences(
+    localStorage,
+    READER_PREFERENCES_KEY,
+    {
+      ...readerPreferences,
+      [key]: value,
+    },
+  );
+  renderPreferenceControls();
+  renderStatus();
+  return { ...readerPreferences };
+}
 
 function speechPlanOptions() {
   return {
@@ -234,6 +274,55 @@ function makeButton(label, handler) {
   return button;
 }
 
+
+function makeCheckbox(label, preferenceKey) {
+  const wrapper = document.createElement('label');
+  wrapper.style.cssText = 'display:flex;gap:6px;align-items:center;margin:5px 3px';
+
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.dataset.preferenceKey = preferenceKey;
+  input.addEventListener('change', () => {
+    setReaderPreference(preferenceKey, input.checked);
+  });
+
+  const text = document.createElement('span');
+  text.textContent = label;
+
+  wrapper.append(input, text);
+  return wrapper;
+}
+
+function renderPreferenceControls() {
+  if (!optionsElement) return;
+
+  for (const input of optionsElement.querySelectorAll('[data-preference-key]')) {
+    const key = input.dataset.preferenceKey;
+    if (input.tagName === 'SELECT') input.value = readerPreferences[key];
+    else input.checked = Boolean(readerPreferences[key]);
+  }
+
+  if (controlsElement) {
+    controlsElement.hidden = readerPreferences.panelCollapsed;
+  }
+
+  if (optionsElement) {
+    optionsElement.hidden =
+      readerPreferences.panelCollapsed
+      || optionsElement.dataset.open !== 'true';
+  }
+
+  if (collapseButton) {
+    collapseButton.textContent = readerPreferences.panelCollapsed ? '▴' : '▾';
+    collapseButton.title = readerPreferences.panelCollapsed ? 'Expand' : 'Collapse';
+  }
+
+  if (optionsButton) {
+    optionsButton.textContent =
+      optionsElement?.dataset.open === 'true' ? 'Hide options' : 'Options';
+  }
+}
+
 function makeCheckbox(label, key) {
   const row = document.createElement('label');
   row.style.cssText = 'display:flex;gap:7px;align-items:center;padding:3px 1px';
@@ -336,14 +425,8 @@ function createPanel() {
       outline: 3px solid #2aabee !important;
       outline-offset: 2px !important;
     }
-    #${PANEL_ID} button,
-    #${PANEL_ID} select,
-    #${PANEL_ID} input { font: inherit; }
-    #${PANEL_ID} summary {
-      cursor: pointer;
-      user-select: none;
-      padding: 4px 2px;
-      font-weight: 600;
+    #${PANEL_ID} button, #${PANEL_ID} select, #${PANEL_ID} input {
+      font: inherit;
     }
   `;
   document.head.append(style);
@@ -356,33 +439,26 @@ function createPanel() {
     'right:8px',
     'bottom:72px',
     'z-index:2147483647',
-    'width:min(330px,calc(100vw - 16px))',
+    'width:min(340px,calc(100vw - 16px))',
     'padding:8px',
     'border-radius:10px',
-    'background:#15171af0',
+    'background:#15171af2',
     'color:#fff',
     'font:12px sans-serif',
     'box-shadow:0 3px 14px #0008',
   ].join(';');
 
   const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:flex-start;gap:5px';
+  header.style.cssText = 'display:flex;gap:5px;align-items:flex-start';
 
   statusElement = document.createElement('div');
-  statusElement.style.cssText = [
-    'flex:1',
-    'min-width:0',
-    'padding:3px 4px 6px',
-    'line-height:1.35',
-    'overflow-wrap:anywhere',
-  ].join(';');
+  statusElement.style.cssText = 'flex:1;padding:3px 5px 6px;line-height:1.35';
 
-  collapseButton = makeButton('−', () => {
-    updateReaderPreferences({
-      panelCollapsed: !readerPreferences.panelCollapsed,
-    });
+  collapseButton = makeButton('▾', () => {
+    setReaderPreference('panelCollapsed', !readerPreferences.panelCollapsed);
   });
   collapseButton.style.cssText += ';padding:4px 8px;margin:0';
+
   header.append(statusElement, collapseButton);
 
   controlsElement = document.createElement('div');
@@ -391,6 +467,7 @@ function createPanel() {
     selectionMode = true;
     renderStatus();
   });
+
   const play = makeButton('Play', playFromSelection);
   pauseButton = makeButton('Pause', togglePause);
   const previous = makeButton('Prev', () => player.previous());
@@ -400,32 +477,65 @@ function createPanel() {
     messageObserver?.stop();
     player.stop();
   });
-  controlsElement.append(pick, play, pauseButton, previous, next, stop);
 
-  settingsElement = document.createElement('details');
-  settingsElement.style.cssText = [
-    'margin:4px 3px 0',
-    'padding:3px 5px',
-    'border-top:1px solid #ffffff24',
-  ].join(';');
+  optionsButton = makeButton('Options', () => {
+    optionsElement.dataset.open =
+      optionsElement.dataset.open === 'true' ? 'false' : 'true';
+    renderPreferenceControls();
+  });
 
-  const summary = document.createElement('summary');
-  summary.textContent = 'Settings';
-  const settingsBody = document.createElement('div');
-  settingsBody.style.cssText = 'padding:3px 1px 1px';
-  settingsBody.append(
-    makeCheckbox('Announce authors', 'announceAuthors'),
-    makeCheckbox('Merge same author', 'mergeAdjacent'),
-    makeCheckbox('Skip emoji-only', 'skipEmojiOnly'),
-    makeCheckbox('Speak media labels', 'announceMedia'),
-    makeCheckbox('Resume after wake', 'autoResumeOnVisible'),
-    makeLinkModeSelect(),
+  controlsElement.append(
+    pick,
+    play,
+    pauseButton,
+    previous,
+    next,
+    stop,
+    optionsButton,
   );
 
-  settingsElement.append(summary, settingsBody);
-  panel.append(header, controlsElement, settingsElement);
+  optionsElement = document.createElement('div');
+  optionsElement.dataset.open = 'false';
+  optionsElement.style.cssText = [
+    'margin-top:5px',
+    'padding:6px',
+    'border-top:1px solid #ffffff22',
+  ].join(';');
+
+  optionsElement.append(
+    makeCheckbox('Announce authors', 'announceAuthors'),
+    makeCheckbox('Merge adjacent', 'mergeAdjacent'),
+    makeCheckbox('Skip emoji-only', 'skipEmojiOnly'),
+    makeCheckbox('Announce media', 'announceMedia'),
+    makeCheckbox('Resume after wake', 'autoResumeOnVisible'),
+  );
+
+  const linkLabel = document.createElement('label');
+  linkLabel.style.cssText = 'display:flex;gap:6px;align-items:center;margin:5px 3px';
+  linkLabel.append(document.createTextNode('Links'));
+
+  const linkSelect = document.createElement('select');
+  linkSelect.dataset.preferenceKey = 'linkMode';
+  for (const [value, label] of [
+    ['domain', 'Domain only'],
+    ['skip', 'Skip'],
+    ['verbatim', 'Verbatim'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    linkSelect.append(option);
+  }
+  linkSelect.addEventListener('change', () => {
+    setReaderPreference('linkMode', linkSelect.value);
+  });
+  linkLabel.append(linkSelect);
+  optionsElement.append(linkLabel);
+
+  panel.append(header, controlsElement, optionsElement);
   document.body.append(panel);
-  applyPanelState();
+
+  renderPreferenceControls();
   renderStatus();
 }
 
@@ -461,6 +571,10 @@ window.__voxThreadApp = {
   },
   getVoiceOverrides() {
     return { ...voiceOverrides };
+  },
+  setReaderPreference,
+  getReaderPreferences() {
+    return { ...readerPreferences };
   },
   setReaderPreferences(patch) {
     return updateReaderPreferences(patch);
