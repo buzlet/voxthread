@@ -100,3 +100,11 @@ the real Chrome runtime. VoxThread kept the message as one logical queue
 segment but split its speech into 8 utterance chunks. Playback remained on
 queue index 0 while chunk 0 was speaking, confirming that TTS chunking does
 not alter Telegram message ordering or queue semantics.
+
+## Long utterance chunking
+
+The oversized Telegram fixture produced one 24-sentence message followed by a
+short second message. VoxThread split the first speech segment into 8 Web
+Speech utterances. In real emulator Chrome the queue remained on message 4001
+while `chunkIndex` advanced from 0 to 1, confirming that chunk completion does
+not prematurely advance the Telegram message queue.
