@@ -71,6 +71,7 @@ export class WebSpeechPlayer {
     const segment = this.queue.current;
     if (!segment || this.queue.status !== 'playing') return;
 
+    const generation = this.#generation;
     const chunks = this.#segmentChunks(segment);
     if (!chunks.length) {
       this.#chunkIndex = 0;
@@ -82,7 +83,6 @@ export class WebSpeechPlayer {
       this.#chunkIndex = 0;
     }
 
-    const generation = this.#generation;
     const utterance = new this.Utterance(chunks[this.#chunkIndex]);
     const voice = this.voiceResolver?.(segment) ?? null;
 
@@ -108,8 +108,7 @@ export class WebSpeechPlayer {
       }
 
       this.#chunkIndex = 0;
-      this.queue.advance();
-      this.#speakCurrent();
+      this.#advanceAfterPause(segment, generation);
     };
 
     utterance.onerror = event => {
