@@ -6,6 +6,8 @@ const shouldPlay = process.argv.includes('--play');
 const shouldStop = process.argv.includes('--stop');
 const inspectOnly = process.argv.includes('--inspect');
 const prefArgs = process.argv.filter(arg => arg.startsWith('--pref='));
+const voiceLangArg = process.argv.find(arg => arg.startsWith('--voice-lang='));
+const voiceLanguage = voiceLangArg?.slice('--voice-lang='.length) || null;
 const voiceAuthorArg = process.argv.find(arg => arg.startsWith('--voice-author='));
 const voiceUriArg = process.argv.find(arg => arg.startsWith('--voice-uri='));
 const voiceAuthor = voiceAuthorArg
@@ -115,6 +117,31 @@ const build = inspectOnly
   ? null
   : await evaluate('window.__voxThreadApp.buildQueue()');
 
+let voiceOverrideResult = null;
+if (voiceLanguage) {
+  voiceOverrideResult = await evaluate(`(() => {
+    const segment = window.__voxThreadApp?.queue?.current;
+    if (!segment) return { applied: false, reason: 'no-current-segment' };
+
+    const language = ${JSON.stringify(voiceLanguage.toLowerCase())};
+    const voice = speechSynthesis.getVoices().find(item =>
+      String(item.lang || '').toLowerCase().startsWith(language)
+    );
+
+    if (!voice) return { applied: false, reason: 'voice-not-found' };
+
+    const value = voice.voiceURI || voice.name;
+    window.__voxThreadApp.setVoiceOverride(segment.authorKey, value);
+
+    return {
+      applied: true,
+      authorKey: segment.authorKey,
+      voice: value,
+      lang: voice.lang,
+    };
+  })()`);
+}
+
 if (shouldPlay) {
   const playButton = await evaluate(`(() => {
     const button = [...document.querySelectorAll('#voxthread-reader button')]
@@ -154,6 +181,10 @@ const state = await evaluate(`(() => ({
   chunkIndex: window.__voxThreadApp?.player?.chunkIndex ?? null,
   chunkCount: window.__voxThreadApp?.player?.chunkCount ?? null,
   preferences: window.__voxThreadApp?.getReaderPreferences?.() ?? null,
+  voiceOverrideResult: ${JSON.stringify(voiceOverrideResult)},
+  voiceOverrides: window.__voxThreadApp?.getVoiceOverrides?.() ?? null,
+  voiceSummary: document.querySelector('#voxthread-voice-settings > div')?.textContent ?? null,
+  voiceRows: document.querySelectorAll('#voxthread-voice-settings select').length,
   controlsHidden: document.querySelector('#voxthread-reader > div:nth-child(2)')?.hidden ?? null,
   settingsHidden: document.querySelector('#voxthread-reader > details')?.hidden ?? null,
   voiceCount: speechSynthesis.getVoices().length,

@@ -513,6 +513,7 @@ function createPanel() {
   );
 
   voiceSettingsElement = document.createElement('div');
+  voiceSettingsElement.id = 'voxthread-voice-settings';
   voiceSettingsElement.style.cssText = [
     'margin-top:5px',
     'padding-top:4px',
