@@ -1,0 +1,70 @@
+name: Android emulator regression
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chrome-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Enable KVM access
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run API 36 Chrome regressions
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 36
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 2048
+          emulator-options: >-
+            -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+            -no-snapshot
+          script: |
+            mkdir -p artifacts
+            adb shell pm list packages | grep -q '^package:com.android.chrome$'
+            adb shell am set-debug-app --persistent com.android.chrome
+            adb shell 'echo "chrome --disable-fre --no-default-browser-check --no-first-run --skip_first_run_ui" > /data/local/tmp/chrome-command-line'
+            adb shell am force-stop com.android.chrome
+            adb shell am start -n com.android.chrome/com.google.android.apps.chrome.Main
+            sleep 3
+            npm run test:emulator
+            npm run test:emulator:lifecycle
+            npm run test:emulator:live
+            npm run test:emulator:selection
+      - name: Collect emulator diagnostics
+        if: always()
+        run: |
+          mkdir -p artifacts
+          adb devices -l > artifacts/adb-devices.txt 2>&1 || true
+          adb logcat -d > artifacts/logcat.txt 2>&1 || true
+          adb shell dumpsys power > artifacts/dumpsys-power.txt 2>&1 || true
+          adb exec-out screencap -p > artifacts/emulator.png 2>/dev/null || true
+      - name: Upload emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-emulator-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
