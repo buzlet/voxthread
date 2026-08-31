@@ -1,3 +1,4 @@
+import { prepareMessageForSpeech } from './content-policy.mjs';
 // src/core/speech-planner.mjs
 
 function authorKey(message) {
@@ -26,9 +27,12 @@ export function planSpeech(messages, options = {}) {
     mergeAdjacent = true,
     announceAuthors = true,
     pauseAfterMs = 250,
+    contentPolicy = {},
   } = options;
 
-  const source = messages.filter(shouldSpeak);
+  const source = messages
+    .map(message => prepareMessageForSpeech(message, contentPolicy))
+    .filter(shouldSpeak);
   const segments = [];
   let previousAuthorKey = null;
 
