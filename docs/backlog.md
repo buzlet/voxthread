@@ -20,7 +20,7 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-011 | TODO | P1 | Add minimal overlay UI and start-reading-from-selected-message interaction. |
 | TWR-012 | TODO | P1 | Define policy for replies, forwards, links, emoji-only messages, media and Telegram service messages. |
 | TWR-013 | TODO | P1 | Add Node unit tests and browser fixture/regression tests. |
-| TWR-014 | TODO | P0 | Compare the same reader on Firefox Android and document background/TTS differences. |
+| TWR-014 | TODO | P1 | Compare the same reader on Firefox Android and document background/TTS differences. |
 | TWR-015 | TODO | P2 | Evaluate MediaSession/Bluetooth headset controls for playback. |
 | TWR-016 | DOING | P2 | Build reproducible userscript bundling/install/update workflow. |
 | TWR-017 | DONE | P2 | Select and apply the final public project/repository name: VoxThread; update paths, README and future GitHub remote metadata consistently. |
