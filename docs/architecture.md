@@ -11,7 +11,7 @@ Read Telegram Web conversations as a continuous audio stream suitable for listen
 
 Telegram authentication, synchronization and message rendering remain the responsibility of Telegram Web. The project does not initially implement MTProto or TDLib.
 
-The reader is injected into Telegram Web as a userscript. Browser-specific integration is isolated so that Edge/Tampermonkey can be replaced if Android background behaviour proves unsuitable.
+The reader is injected into Telegram Web as a userscript. Browser-specific integration is isolated so that Firefox, Chromium/Edge or another Android runtime can be substituted without changing Telegram/core logic.
 
 ## Data flow
 
@@ -59,13 +59,17 @@ Remote TTS remains opt-in architecture work: transmitting Telegram message text 
 
 ## Runtime strategy
 
-Primary candidate: Edge Android + Tampermonkey. Firefox Android remains a comparison target until its Android Web Speech/lifecycle behaviour is measured.
+Firefox Android is the preferred runtime for continuous background/screen-off reading. A reproducible API 36 comparison using the same VoxThread bundle and the same accessibility-targeted real ADB touch showed Firefox 154.0.1 continuing Web Speech through background and screen-off/wake without TTS errors.
 
-GitHub Actions is the primary reproducible development/test environment. Core tests use synthetic/captured fixtures and Android regression runs use a clean API 36 x86_64 emulator. A real Galaxy A57 remains the acceptance target for Samsung-specific power management, audio focus, calls, lock-screen behaviour and final Tampermonkey deployment.
+Chrome remains a supported fallback and the primary automated regression target because CDP provides substantially better inspection/control. On the same API 36 comparison Chrome reports `interrupted` when backgrounded or the screen is turned off; VoxThread's no-skip recovery retains the current message and resumes it instead of advancing silently.
+
+GitHub Actions is the primary reproducible development/test environment. Core tests use synthetic/captured fixtures and Android regression runs use a clean API 36 x86_64 emulator. A real Galaxy A57 remains the acceptance target for Samsung-specific power management, audio focus, calls, secure lock-screen behaviour and final userscript-manager deployment.
 
 ## Background execution
 
-Browser Web Speech is a provider implementation, not an architectural guarantee. If Android suspends or interrupts it while locked, preserve the normalized/core layers and replace only the TTS/runtime boundary, potentially with native Android TTS in a foreground service. A remote TTS backend is technically possible through the same boundary but changes privacy properties.
+Browser Web Speech is a provider implementation, not an architectural guarantee. Firefox currently gives the best measured browser-only continuity on the generic API 36 target, but Samsung/Android policy may still suspend or interrupt it on real hardware.
+
+If the physical-device acceptance target proves browser Web Speech insufficient, preserve Telegram, normalized/core and queue layers and replace only the TTS backend/runtime composition, preferably with native Android TTS in a foreground service. A remote TTS backend is technically possible through the same boundary but changes privacy properties.
 
 ## Security and privacy
 
