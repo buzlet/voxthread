@@ -23,3 +23,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-014 | TODO | P2 | Compare the same reader on Firefox Android and document background/TTS differences. |
 | TWR-015 | TODO | P2 | Evaluate MediaSession/Bluetooth headset controls for playback. |
 | TWR-016 | TODO | P2 | Build reproducible userscript bundling/install/update workflow. |
+| TWR-017 | TODO | P2 | Select and apply the final public project/repository name; update paths, README and GitHub remote metadata consistently. |
