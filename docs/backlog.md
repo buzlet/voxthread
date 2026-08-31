@@ -33,4 +33,4 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-024 | DONE | P0 | Add sentence-aware TTS chunking so long or merged Telegram messages do not depend on one oversized Web Speech utterance. |
 | TWR-025 | DONE | P1 | Add emulator-testable per-author voice controls and clearly expose browser voice capability/fallback state. |
 | TWR-026 | DONE | P1 | Honor configured pauses between speech segments without breaking pause/resume/next semantics. |
-| TWR-027 | DOING | P1 | Validate live-follow in real emulator Chrome: append a new Telegram bubble after queue completion and verify automatic queue extension/resume. |
+| TWR-027 | DONE | P1 | Validate live-follow in real emulator Chrome: append a new Telegram bubble after queue completion and verify automatic queue extension/resume. |

@@ -123,3 +123,11 @@ The Web Speech player now honors `pauseAfterMs` between queue segments while
 preserving pause/resume/next semantics. Unit tests cover delay, pausing during
 the delay and navigation while paused. The full emulator lifecycle regression
 also passes with the delayed transition implementation.
+
+## Live follow
+
+The real Chrome regression now waits for the initial two-segment queue to
+finish, appends synthetic Telegram bubble `5001` through CDP, and verifies that
+MutationObserver extends the queue from 2 to 3 and automatically resumes
+playback on the new message. This validates the completed-queue live-follow
+path without a Telegram account.
