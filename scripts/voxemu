@@ -13,7 +13,7 @@ boot_wait() {
 case "${1:-status}" in
   start)
     if ! "$ADB" -s "$SERIAL" get-state >/dev/null 2>&1; then
-      sg kvm -c "nohup '$EMU' '@$AVD' -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 1536 -cores 2 >/tmp/voxthread-emulator.log 2>&1 &"
+      sg kvm -c "nohup '$EMU' '@$AVD' -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 2048 -cores 2 >/tmp/voxthread-emulator.log 2>&1 &"
     fi
     boot_wait
     "$ADB" -s "$SERIAL" shell getprop ro.build.version.release
@@ -24,6 +24,13 @@ case "${1:-status}" in
     "$ADB" -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null || true
     ;;
   cdp) "$ADB" -s "$SERIAL" forward tcp:9223 localabstract:chrome_devtools_remote ;;
+  probe)
+    url="http://10.0.2.2:8765/tests/browser/tts-probe.html?rev=$(date +%s)"
+    "$ADB" -s "$SERIAL" shell am start \
+      -a android.intent.action.VIEW \
+      -d "$url" \
+      com.android.chrome
+    ;;
   adb) shift; exec "$ADB" -s "$SERIAL" "$@" ;;
-  *) echo "usage: voxemu {start|stop|status|cdp|adb ...}" >&2; exit 2 ;;
+  *) echo "usage: voxemu {start|stop|status|cdp|probe|adb ...}" >&2; exit 2 ;;
 esac

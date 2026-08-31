@@ -3,7 +3,7 @@ const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const touchArg = process.argv.find(arg => arg.startsWith('--touch='));
 const touchLabel = touchArg ? decodeURIComponent(touchArg.slice('--touch='.length)) : null;
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
-const page = pages.find(p => p.type === 'page' && /\/tests\/browser\/tts-probe\.html$/.test(p.url));
+const page = pages.find(p => p.type === 'page' && /\/tests\/browser\/tts-probe\.html(?:[?#].*)?$/.test(p.url));
 if (!page) throw new Error('VoxThread TTS probe page not found');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 let id = 0;
@@ -40,7 +40,9 @@ if (touchLabel) {
 const state = await evaluate(`(() => ({
   title: document.title,
   status: document.querySelector('#status')?.textContent || '',
+  voiceCount: speechSynthesis.getVoices().length,
   voices: speechSynthesis.getVoices().slice(0, 20).map(v => ({ lang:v.lang,name:v.name,localService:v.localService,default:v.default })),
+  russianVoices: speechSynthesis.getVoices().filter(v => /^ru[-_]/i.test(v.lang)).map(v => ({ lang:v.lang,name:v.name,localService:v.localService,default:v.default })),
   tts: window.__voxTtsProbe?.state || null,
 }))()`);
 console.log(JSON.stringify(state, null, 2));
