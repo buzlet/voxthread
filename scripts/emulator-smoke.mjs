@@ -45,12 +45,15 @@ await sleep(1200);
 run('./scripts/voxemu', ['cdp']);
 
 let state;
-for (let i = 0; i < 15; i += 1) {
+for (let i = 0; i < 60; i += 1) {
   try {
     state = probe();
     if (state.voiceCount > 0) break;
   } catch {}
   await sleep(500);
+  if (i === 2) {
+    try { probe(['--touch=Voices']); } catch {}
+  }
 }
 
 if (!state || state.voiceCount < 1) throw new Error('Chrome Web Speech exposed no voices');

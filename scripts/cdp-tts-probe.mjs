@@ -3,7 +3,7 @@ const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const touchArg = process.argv.find(arg => arg.startsWith('--touch='));
 const touchLabel = touchArg ? decodeURIComponent(touchArg.slice('--touch='.length)) : null;
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
-const page = pages.find(p => p.type === 'page' && /\/tests\/browser\/tts-probe\.html(?:[?#].*)?$/.test(p.url));
+const page = pages.filter(p => p.type === 'page' && /\/tests\/browser\/tts-probe\.html(?:[?#].*)?$/.test(p.url)).sort((a, b) => Number(b.id) - Number(a.id))[0];
 if (!page) throw new Error('VoxThread TTS probe page not found');
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 let id = 0;
