@@ -85,3 +85,10 @@ Validated result:
 - sleep index: 0
 - resume index: 0
 - same-message resume: true
+
+## Backlog attribution note
+
+Per-author voice controls were first committed as `d42436d` with a `TWR-024`
+commit prefix while TWR-024 had already been allocated to long-utterance
+chunking. The permanent backlog item for those voice controls is TWR-025.
+History is intentionally not rewritten.
