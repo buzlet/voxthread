@@ -35,6 +35,10 @@ function probeHtml(browser, scenario) {
 <style>
   body { font:16px sans-serif }
   .bubble { display:block;min-height:48px;margin:8px;padding:8px }
+  #voxthread-probe-start {
+    position:fixed;inset:0;z-index:2147483647;border:0;
+    background:#111;color:#fff;font:700 28px sans-serif;
+  }
 </style>
 <div class="chat tabs-tab active">
   <section class="bubbles-date-group">
@@ -49,6 +53,7 @@ function probeHtml(browser, scenario) {
     </div>
   </section>
 </div>
+<button id="voxthread-probe-start" type="button">Start VoxThread probe</button>
 <script>
 const browserName=${JSON.stringify(browser)};
 const scenarioName=${JSON.stringify(scenario)};
@@ -86,12 +91,17 @@ setTimeout(async()=>{
     await report('runtime-unavailable');
     return;
   }
-  app.setReaderPreferences({announceAuthors:false,mergeAdjacent:false,autoResumeOnVisible:true});
-  app.buildQueue();
-  app.player.play();
-  await report('play-started');
-  const timer=setInterval(()=>report('heartbeat'),500);
-  setTimeout(()=>clearInterval(timer),12000);
+  const button=document.getElementById('voxthread-probe-start');
+  button.addEventListener('click',async()=>{
+    app.setReaderPreferences({announceAuthors:false,mergeAdjacent:false,autoResumeOnVisible:true});
+    app.buildQueue();
+    app.player.play();
+    button.remove();
+    await report('play-started');
+    const timer=setInterval(()=>report('heartbeat'),500);
+    setTimeout(()=>clearInterval(timer),12000);
+  },{once:true});
+  await report('ready-for-gesture');
 },350);
 </script>`;
 }
@@ -174,6 +184,16 @@ async function dismissFirefoxOnboarding() {
   }
 }
 
+function tapScreenCenter() {
+  const output = adb('shell', 'wm', 'size');
+  const match = output.match(/Physical size:\s*(\d+)x(\d+)/)
+    || output.match(/Override size:\s*(\d+)x(\d+)/);
+  if (!match) throw new Error(`Cannot determine emulator screen size: ${output}`);
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  adb('shell', 'input', 'tap', String(Math.floor(width / 2)), String(Math.floor(height / 2)));
+}
+
 async function waitFor(browser, scenario, predicate, timeoutMs = 9000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -186,9 +206,8 @@ async function waitFor(browser, scenario, predicate, timeoutMs = 9000) {
 }
 
 function openBrowser(pkg, browser, scenario) {
-  // Keep the URL free of '&': adb shell passes arguments through the Android
-  // shell, where an ampersand would split the command and turn the package
-  // name into a second shell command.
+  // Keep the URL free of '&': adb shell passes arguments through Android's
+  // shell, where an ampersand would split the command.
   const url = `http://10.0.2.2:${PORT}/probe/${browser}/${scenario}/${Date.now()}`;
   adb(
     'shell', 'am', 'start',
@@ -198,7 +217,7 @@ function openBrowser(pkg, browser, scenario) {
   );
 }
 
-async function ensureProbeLoaded(pkg, browser, scenario) {
+async function ensureProbeStarted(pkg, browser, scenario) {
   openBrowser(pkg, browser, scenario);
   if (browser === 'firefox') {
     await sleep(1000);
@@ -209,16 +228,25 @@ async function ensureProbeLoaded(pkg, browser, scenario) {
   const ready = await waitFor(
     browser,
     scenario,
-    item => ['play-started', 'runtime-unavailable', 'window-error'].includes(item.phase),
+    item => ['ready-for-gesture', 'runtime-unavailable', 'window-error'].includes(item.phase),
   );
+  if (!ready) throw new Error(`${browser}/${scenario}: probe page did not report readiness`);
+  if (!ready.appReady) return ready;
 
-  if (!ready) throw new Error(`${browser}/${scenario}: probe page did not report`);
-  return ready;
+  tapScreenCenter();
+  const started = await waitFor(
+    browser,
+    scenario,
+    item => item.phase === 'play-started' || item.phase === 'window-error',
+    5000,
+  );
+  if (!started) throw new Error(`${browser}/${scenario}: real touch did not start the probe`);
+  return started;
 }
 
 async function runScenario(browser, pkg, scenario) {
   reports.delete(key(browser, scenario));
-  const started = await ensureProbeLoaded(pkg, browser, scenario);
+  const started = await ensureProbeStarted(pkg, browser, scenario);
 
   if (started.appReady) {
     await waitFor(browser, scenario, item => item.phase === 'heartbeat', 3000);
@@ -279,6 +307,7 @@ const browsers = [
 const scenarios = ['foreground', 'background', 'screen-off'];
 const result = {
   target: 'GitHub/API36 generic Android emulator',
+  gesture: 'adb real touch',
   measuredAt: new Date().toISOString(),
   browsers: {},
 };
@@ -316,6 +345,10 @@ if (transportFailure) {
 }
 
 const chromeForeground = result.browsers.chrome.foreground;
-if (!chromeForeground?.hasSpeechSynthesis || !chromeForeground?.appReady) {
-  throw new Error('Chrome comparison baseline did not initialize VoxThread Web Speech');
+if (
+  !chromeForeground?.hasSpeechSynthesis
+  || !chromeForeground?.appReady
+  || chromeForeground?.firstQueueStatus !== 'playing'
+) {
+  throw new Error('Chrome real-touch baseline did not start VoxThread Web Speech');
 }
