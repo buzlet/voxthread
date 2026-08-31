@@ -41,9 +41,13 @@ async function evaluate(expression) {
 }
 
 const opened = await evaluate(`(() => {
-  const el = document.querySelector('[data-peer-id="${peerId}"]');
+  const rows = [...document.querySelectorAll('a[data-peer-id="${peerId}"]')];
+  const el = rows.find(el => {
+    const r = el.getBoundingClientRect();
+    return el.offsetParent !== null && r.width > 0 && r.height > 0;
+  });
   if (!el) return false;
-  (el.closest('a') || el).click();
+  el.click();
   return true;
 })()`);
 
