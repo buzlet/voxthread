@@ -92,3 +92,11 @@ Per-author voice controls were first committed as `d42436d` with a `TWR-024`
 commit prefix while TWR-024 had already been allocated to long-utterance
 chunking. The permanent backlog item for those voice controls is TWR-025.
 History is intentionally not rewritten.
+
+## Oversized-message Web Speech regression
+
+A synthetic Telegram message containing 24 long sentences was injected into
+the real Chrome runtime. VoxThread kept the message as one logical queue
+segment but split its speech into 8 utterance chunks. Playback remained on
+queue index 0 while chunk 0 was speaking, confirming that TTS chunking does
+not alter Telegram message ordering or queue semantics.
