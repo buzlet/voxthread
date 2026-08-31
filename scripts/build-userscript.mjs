@@ -3,22 +3,24 @@ import * as esbuild from 'esbuild';
 import fs from 'node:fs/promises';
 
 const pkg = JSON.parse(await fs.readFile('package.json', 'utf8'));
-
 const dev = process.argv.includes('--dev');
-const revisionArg = process.argv.find(arg => arg.startsWith('--revision='));
-const [, minor = '0'] = String(pkg.version).split('.');
-const defaultRevision = String(Number(minor) || 0).padStart(3, '0');
-const revision = revisionArg?.slice('--revision='.length) || defaultRevision;
-const outfile = dev ? 'dist/voxthread-dev.js' : `dist/voxthread-${revision}.user.js`;
+const outfile = dev ? 'dist/voxthread-dev.js' : 'dist/voxthread.user.js';
+const releaseUrl = 'https://github.com/buzlet/voxthread/releases/latest/download/voxthread.user.js';
+
+const updateMetadata = dev
+  ? ''
+  : `\n// @downloadURL  ${releaseUrl}\n// @updateURL    ${releaseUrl}`;
 
 const metadata = `// ==UserScript==
 // @name         VoxThread
 // @namespace    https://github.com/buzlet/voxthread
 // @version      ${pkg.version}
 // @description  Read Telegram Web conversations aloud.
+// @homepageURL  https://github.com/buzlet/voxthread
+// @supportURL   https://github.com/buzlet/voxthread/issues
 // @match        https://web.telegram.org/k/*
 // @run-at       document-idle
-// @grant        none
+// @grant        none${updateMetadata}
 // ==/UserScript==`;
 
 await fs.mkdir('dist', { recursive: true });
