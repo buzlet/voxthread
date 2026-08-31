@@ -3,6 +3,9 @@ const base = process.env.CDP_BASE || 'http://127.0.0.1:9222';
 const peerArg = process.argv.find(arg => arg.startsWith('--peer='));
 const peerId = peerArg?.slice('--peer='.length) || null;
 const shouldScan = process.argv.includes('--scan');
+const speakArg = process.argv.find(arg => arg.startsWith('--speak='));
+const speakCount = Number(speakArg?.slice('--speak='.length) || 0);
+const shouldStop = process.argv.includes('--stop');
 
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
 const page = pages.find(p =>
@@ -74,6 +77,15 @@ if (shouldScan) {
   })()`);
 }
 
+if (shouldStop) {
+  await evaluate(`window.__voxThread?.stopSpeech?.()`);
+}
+
+if (speakCount > 0) {
+  await evaluate(`window.__voxThread?.speakSynthetic?.(${speakCount})`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+}
+
 const state = await evaluate(`(() => {
   const panel = document.getElementById('voxthread-diagnostics');
   const state = window.__voxThreadDiag || null;
@@ -84,6 +96,9 @@ const state = await evaluate(`(() => {
     scannedAt: state?.scannedAt || null,
     messageCount: state?.messages?.length || 0,
     mids: state?.messages?.map(message => message.mid) || [],
+    voiceCount: state?.voices?.length || 0,
+    voices: state?.voices?.slice(0, 40) || [],
+    tts: state?.tts || null,
   };
 })()`);
 
