@@ -41,7 +41,7 @@ jobs:
             -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
             -no-snapshot
           script: |
-            set -o pipefail
+            set -eu
             mkdir -p artifacts
             collect_diagnostics() {
               timeout 8s adb devices -l > artifacts/adb-devices.txt 2>&1 || true
