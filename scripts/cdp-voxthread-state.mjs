@@ -1,5 +1,9 @@
 // scripts/cdp-voxthread-state.mjs
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9222';
+const peerArg = process.argv.find(arg => arg.startsWith('--peer='));
+const peerId = peerArg?.slice('--peer='.length) || null;
+const shouldScan = process.argv.includes('--scan');
+
 const pages = await fetch(`${base}/json/list`).then(r => r.json());
 const page = pages.find(p =>
   p.type === 'page' && p.url.startsWith('https://web.telegram.org/k/')
@@ -29,7 +33,48 @@ function cdp(method, params = {}) {
   );
 }
 
-const expression = `(() => {
+async function evaluate(expression) {
+  const result = await cdp('Runtime.evaluate', {
+    expression,
+    returnByValue: true,
+    awaitPromise: true,
+  });
+  return result.result?.value;
+}
+
+if (peerId) {
+  const target = await evaluate(`(() => {
+    const rows = [...document.querySelectorAll('a[data-peer-id="${peerId}"]')];
+    const el = rows.find(el => {
+      const r = el.getBoundingClientRect();
+      return el.offsetParent !== null && r.width > 0 && r.height > 0;
+    });
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+
+  if (!target) throw new Error(`Visible peer ${peerId} not found`);
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchStart', touchPoints: [{ x: target.x, y: target.y }],
+  });
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchEnd', touchPoints: [],
+  });
+  await new Promise(resolve => setTimeout(resolve, 1200));
+}
+
+if (shouldScan) {
+  await evaluate(`(() => {
+    const panel = document.getElementById('voxthread-diagnostics');
+    const button = panel?.querySelector('button');
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+}
+
+const state = await evaluate(`(() => {
   const panel = document.getElementById('voxthread-diagnostics');
   const state = window.__voxThreadDiag || null;
   return {
@@ -40,13 +85,7 @@ const expression = `(() => {
     messageCount: state?.messages?.length || 0,
     mids: state?.messages?.map(message => message.mid) || [],
   };
-})()`;
+})()`);
 
-const result = await cdp('Runtime.evaluate', {
-  expression,
-  returnByValue: true,
-  awaitPromise: true,
-});
-
-console.log(JSON.stringify(result.result?.value, null, 2));
+console.log(JSON.stringify(state, null, 2));
 ws.close();
