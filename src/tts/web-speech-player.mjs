@@ -6,6 +6,8 @@ export class WebSpeechPlayer {
   #restartOnResume = false;
   #lastError = null;
   #chunkIndex = 0;
+  #transitionTimer = null;
+  #waitingForNext = false;
 
   constructor({
     queue,
@@ -34,6 +36,37 @@ export class WebSpeechPlayer {
     });
   }
 
+  #clearTransitionTimer() {
+    if (this.#transitionTimer !== null) {
+      clearTimeout(this.#transitionTimer);
+      this.#transitionTimer = null;
+    }
+  }
+
+  #advanceAfterPause(segment, generation) {
+    const delay = Math.max(0, Number(segment.pauseAfterMs) || 0);
+
+    if (!delay) {
+      this.queue.advance();
+      this.#speakCurrent();
+      return;
+    }
+
+    this.#waitingForNext = true;
+    this.#clearTransitionTimer();
+
+    this.#transitionTimer = setTimeout(() => {
+      this.#transitionTimer = null;
+
+      if (generation !== this.#generation) return;
+      if (this.queue.status !== 'playing') return;
+
+      this.#waitingForNext = false;
+      this.queue.advance();
+      this.#speakCurrent();
+    }, delay);
+  }
+
   #speakCurrent() {
     const segment = this.queue.current;
     if (!segment || this.queue.status !== 'playing') return;
@@ -41,8 +74,7 @@ export class WebSpeechPlayer {
     const chunks = this.#segmentChunks(segment);
     if (!chunks.length) {
       this.#chunkIndex = 0;
-      this.queue.advance();
-      this.#speakCurrent();
+      this.#advanceAfterPause(segment, generation);
       return;
     }
 
@@ -84,6 +116,8 @@ export class WebSpeechPlayer {
       if (generation !== this.#generation) return;
 
       this.#lastError = String(event?.error || 'unknown');
+      this.#waitingForNext = false;
+      this.#clearTransitionTimer();
       this.#restartOnResume = true;
       this.#generation += 1;
       this.queue.pause();
@@ -94,6 +128,8 @@ export class WebSpeechPlayer {
 
   play() {
     this.#generation += 1;
+    this.#clearTransitionTimer();
+    this.#waitingForNext = false;
     this.#chunkIndex = 0;
     this.#restartOnResume = false;
     this.#lastError = null;
@@ -105,12 +141,24 @@ export class WebSpeechPlayer {
   pause() {
     this.speechSynthesis.pause();
     this.queue.pause();
+
+    if (this.#waitingForNext) {
+      this.#clearTransitionTimer();
+    }
   }
 
   resume() {
     if (this.queue.status !== 'paused') return;
 
     this.queue.resume();
+
+    if (this.#waitingForNext) {
+      this.#waitingForNext = false;
+      this.#generation += 1;
+      this.queue.advance();
+      this.#speakCurrent();
+      return;
+    }
 
     if (this.#restartOnResume) {
       this.#restartOnResume = false;
@@ -124,6 +172,8 @@ export class WebSpeechPlayer {
 
   stop() {
     this.#generation += 1;
+    this.#clearTransitionTimer();
+    this.#waitingForNext = false;
     this.#chunkIndex = 0;
     this.#restartOnResume = false;
     this.#lastError = null;
@@ -133,6 +183,10 @@ export class WebSpeechPlayer {
 
   next() {
     const wasPlaying = this.queue.status === 'playing';
+    const wasPaused = this.queue.status === 'paused';
+
+    this.#clearTransitionTimer();
+    this.#waitingForNext = false;
     this.#chunkIndex = 0;
     this.#restartOnResume = false;
     this.#lastError = null;
@@ -143,11 +197,17 @@ export class WebSpeechPlayer {
     if (wasPlaying && this.queue.status !== 'completed') {
       this.queue.play();
       this.#speakCurrent();
+    } else if (wasPaused && this.queue.status !== 'completed') {
+      this.#restartOnResume = true;
     }
   }
 
   previous() {
     const wasPlaying = this.queue.status === 'playing';
+    const wasPaused = this.queue.status === 'paused';
+
+    this.#clearTransitionTimer();
+    this.#waitingForNext = false;
     this.#chunkIndex = 0;
     this.#restartOnResume = false;
     this.#lastError = null;
@@ -158,6 +218,8 @@ export class WebSpeechPlayer {
     if (wasPlaying) {
       this.queue.play();
       this.#speakCurrent();
+    } else if (wasPaused) {
+      this.#restartOnResume = true;
     }
   }
 

@@ -234,3 +234,84 @@ test('speech error retries the same chunk instead of restarting the segment', ()
   assert.equal(player.chunkIndex, failedChunk);
   assert.equal(synth.spoken.at(-1).text, failedText);
 });
+
+test('honors pauseAfterMs between queue segments', async () => {
+  const queue = new PlaybackQueue();
+  queue.load([
+    { ...segments[0], pauseAfterMs: 30 },
+    segments[1],
+  ]);
+
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+  });
+
+  player.play();
+  synth.spoken[0].onend();
+
+  assert.equal(queue.index, 0);
+  assert.equal(synth.spoken.length, 1);
+
+  await new Promise(resolve => setTimeout(resolve, 45));
+
+  assert.equal(queue.index, 1);
+  assert.equal(synth.spoken.length, 2);
+});
+
+test('pause during inter-segment delay waits until resume', async () => {
+  const queue = new PlaybackQueue();
+  queue.load([
+    { ...segments[0], pauseAfterMs: 35 },
+    segments[1],
+  ]);
+
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+  });
+
+  player.play();
+  synth.spoken[0].onend();
+  player.pause();
+
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  assert.equal(queue.status, 'paused');
+  assert.equal(queue.index, 0);
+  assert.equal(synth.spoken.length, 1);
+
+  player.resume();
+
+  assert.equal(queue.status, 'playing');
+  assert.equal(queue.index, 1);
+  assert.equal(synth.spoken.length, 2);
+});
+
+test('next while paused starts selected segment on resume', () => {
+  const queue = new PlaybackQueue();
+  queue.load(segments);
+
+  const synth = makeSynth();
+  const player = new WebSpeechPlayer({
+    queue,
+    speechSynthesis: synth,
+    Utterance: FakeUtterance,
+  });
+
+  player.play();
+  player.pause();
+  player.next();
+
+  assert.equal(queue.status, 'paused');
+  assert.equal(queue.index, 1);
+
+  player.resume();
+
+  assert.equal(queue.status, 'playing');
+  assert.equal(synth.spoken.at(-1).text, 'Боб. Пока');
+});
