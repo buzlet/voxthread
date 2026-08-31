@@ -56,3 +56,30 @@ Current setup:
 - Runtime: 2 vCPU, 2 GiB RAM, headless SwiftShader.
 - Chrome is exposed through CDP on host port `9223`.
 - `npm run test:emulator` performs the repeatable Chrome/Web Speech smoke test.
+
+## Emulator release gate
+
+Run the complete emulator-capable regression set with:
+
+```bash
+npm run test:emulator:all
+```
+
+It covers Node tests, Chrome Web Speech availability, sleep/wake no-skip
+recovery, live-follow after queue completion, and real-touch start selection.
+Galaxy A57 remains the acceptance target for Samsung-specific power/audio
+behaviour and the final Tampermonkey deployment path.
+
+## GitHub Actions fallback development environment
+
+GitHub Actions is the independent fallback when `u24` is unavailable.
+
+- `CI` runs on every push and pull request: clean `npm ci`, all Node tests,
+  development userscript build, and generated-bundle reproducibility check.
+- `Android emulator regression` runs on `main`, pull requests, or manually. It
+  creates an API 36 x86_64 Google Play AVD with KVM, prepares Chrome for CDP,
+  then runs smoke, lifecycle, live-follow and real-touch selection regressions.
+- Emulator diagnostics are retained as a short-lived workflow artifact.
+
+No secret Telegram state is required by either workflow; all browser regressions
+use committed sanitized fixtures.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/voxemu
 set -euo pipefail
-SDK="${ANDROID_SDK_ROOT:-/home/gpt/Android/Sdk}"
+SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/home/gpt/Android/Sdk}}"
 ADB="$SDK/platform-tools/adb"
 EMU="$SDK/emulator/emulator"
 SERIAL="${VOXEMU_SERIAL:-emulator-5554}"
