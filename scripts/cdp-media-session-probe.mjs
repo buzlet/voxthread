@@ -1,5 +1,6 @@
 // scripts/cdp-media-session-probe.mjs
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
+const anchorAudio = process.argv.includes('--anchor-audio');
 
 const pages = await fetch(`${base}/json/list`).then(response => response.json());
 const page = pages
@@ -34,6 +35,28 @@ function cdp(method, params = {}) {
   );
 }
 
+function silentWavDataUri() {
+  const sampleRate = 8000;
+  const samples = sampleRate;
+  const dataSize = samples * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVEfmt ', 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return `data:audio/wav;base64,${buffer.toString('base64')}`;
+}
+
+const silentUri = anchorAudio ? silentWavDataUri() : '';
+
 const expression = `(() => {
   if (!('mediaSession' in navigator)) {
     return { available: false };
@@ -48,6 +71,26 @@ const expression = `(() => {
       actions.push(action);
     } catch (error) {
       failed.push({ action, error: String(error) });
+    }
+  }
+
+  if (${anchorAudio ? 'true' : 'false'}) {
+    const button = [...document.querySelectorAll('#voxthread-reader button')]
+      .find(element => element.textContent.trim() === 'Play');
+
+    if (button) {
+      button.addEventListener('click', () => {
+        let audio = document.querySelector('#voxthread-media-anchor');
+        if (!audio) {
+          audio = document.createElement('audio');
+          audio.id = 'voxthread-media-anchor';
+          audio.src = ${JSON.stringify(silentUri)};
+          audio.loop = true;
+          audio.preload = 'auto';
+          document.body.append(audio);
+        }
+        audio.play().catch(error => console.error('[VoxThread] anchor audio', error));
+      }, { once: true, capture: true });
     }
   }
 
@@ -75,6 +118,32 @@ const result = await cdp('Runtime.evaluate', {
   returnByValue: true,
   awaitPromise: true,
 });
+
+if (anchorAudio) {
+  const target = await cdp('Runtime.evaluate', {
+    expression: `(() => {
+      const button = [...document.querySelectorAll('#voxthread-reader button')]
+        .find(element => element.textContent.trim() === 'Play');
+      if (!button) return null;
+      const rect = button.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`,
+    returnByValue: true,
+  });
+
+  const point = target.result?.value;
+  if (!point) throw new Error('VoxThread Play button not found');
+
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: point.x, y: point.y }],
+  });
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
 
 console.log(JSON.stringify(result.result?.value, null, 2));
 ws.close();
