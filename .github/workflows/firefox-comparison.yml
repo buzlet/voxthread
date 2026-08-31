@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/firefox-comparison.yml'
+      - 'scripts/emulator-browser-tts-comparison.mjs'
+      - 'src/**'
 
 permissions:
   contents: read
@@ -20,22 +22,17 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Resolve Firefox Android release
+      - name: Resolve latest stable Firefox Android release
         id: firefox
         shell: bash
         run: |
-          curl -fsSL https://product-details.mozilla.org/1.0/mobile_android.json -o /tmp/mobile_android.json
-          VERSION="$(jq -r '
-            .releases
-            | to_entries
-            | map(select(
-                .value.product == "fenix"
-                and (.value.version | test("^[0-9]+(\\.[0-9]+){1,2}$"))
-              ))
-            | sort_by(.value.date)
-            | last.value.version
-          ' /tmp/mobile_android.json)"
-          test -n "$VERSION" && test "$VERSION" != "null"
+          INDEX="$(curl -fsSL https://archive.mozilla.org/pub/fenix/releases/)"
+          VERSION="$(printf '%s' "$INDEX" \
+            | grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' \
+            | sed -E 's/^href="//;s:/$::;s:"$::' \
+            | sort -V \
+            | tail -n1)"
+          test -n "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Firefox Android $VERSION"
       - name: Restore Firefox APK cache
@@ -43,13 +40,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/firefox-${{ steps.firefox.outputs.version }}.apk
-          key: fenix-universal-${{ steps.firefox.outputs.version }}
+          key: fenix-x86_64-${{ steps.firefox.outputs.version }}
       - name: Download Firefox Android APK
         if: steps.firefox-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           VERSION='${{ steps.firefox.outputs.version }}'
-          URL="https://archive.mozilla.org/pub/fenix/releases/$VERSION/android/fenix-$VERSION-android/fenix-$VERSION.multi.android-universal.apk"
+          URL="https://archive.mozilla.org/pub/fenix/releases/$VERSION/android/fenix-$VERSION-android-x86_64/fenix-$VERSION.multi.android-x86_64.apk"
           curl -fL --retry 3 --retry-delay 3 "$URL" -o "/tmp/firefox-$VERSION.apk"
       - name: Enable KVM access
         run: |
