@@ -4,11 +4,12 @@ import fs from 'node:fs/promises';
 
 const pkg = JSON.parse(await fs.readFile('package.json', 'utf8'));
 
+const dev = process.argv.includes('--dev');
 const revisionArg = process.argv.find(arg => arg.startsWith('--revision='));
 const [, minor = '0'] = String(pkg.version).split('.');
 const defaultRevision = String(Number(minor) || 0).padStart(3, '0');
 const revision = revisionArg?.slice('--revision='.length) || defaultRevision;
-const outfile = `dist/voxthread-${revision}.user.js`;
+const outfile = dev ? 'dist/voxthread-dev.js' : `dist/voxthread-${revision}.user.js`;
 
 const metadata = `// ==UserScript==
 // @name         VoxThread
