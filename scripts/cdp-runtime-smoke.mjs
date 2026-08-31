@@ -149,21 +149,28 @@ if (selectMid !== null && !inspectOnly) {
     await new Promise(resolve => setTimeout(resolve, 220));
   };
 
-  await touch(targets.pick);
+  let pickState = null;
 
-  const pickState = await evaluate(`(() => ({
-    status: document.querySelector('#voxthread-reader > div:first-child > div:first-child')?.textContent || '',
-    hit: (() => {
-      const point = ${JSON.stringify(targets.pick)};
-      const element = document.elementFromPoint(point.x, point.y);
-      return {
-        tag: element?.tagName ?? null,
-        text: element?.textContent?.trim?.() ?? null,
-      };
-    })(),
-  }))()`);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await touch(targets.pick);
 
-  if (!pickState.status.includes('tap message')) {
+    pickState = await evaluate(`(() => ({
+      status: document.querySelector('#voxthread-reader > div:first-child > div:first-child')?.textContent || '',
+      hit: (() => {
+        const point = ${JSON.stringify(targets.pick)};
+        const element = document.elementFromPoint(point.x, point.y);
+        return {
+          tag: element?.tagName ?? null,
+          text: element?.textContent?.trim?.() ?? null,
+        };
+      })(),
+    }))()`);
+
+    if (pickState.status.includes('tap message')) break;
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  if (!pickState?.status.includes('tap message')) {
     throw new Error(
       `Pick-start touch failed: ${JSON.stringify(pickState)}`
     );
