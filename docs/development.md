@@ -49,10 +49,10 @@ experiments and reproducible clean Android state.
 It does not replace Galaxy A57 for Samsung-specific behaviour, telephony,
 audio focus, power management or final lock-screen acceptance tests.
 
-Current blocker:
-- `u24` is a Microsoft Hyper-V guest.
-- `/dev/kvm` is absent.
-- Guest CPU exposes neither `vmx` nor `svm`.
-- `modprobe kvm_intel` fails with `Operation not supported`.
-- Hyper-V nested virtualization must be enabled on the host before an
-  accelerated Android Emulator is practical inside `u24`.
+Current setup:
+- Hyper-V nested virtualization is enabled for `u24`.
+- `/dev/kvm` is available and KVM acceleration is usable.
+- AVD: `voxthread-api36`, Android 16/API 36, Google APIs x86_64.
+- Runtime: 2 vCPU, 2 GiB RAM, headless SwiftShader.
+- Chrome is exposed through CDP on host port `9223`.
+- `npm run test:emulator` performs the repeatable Chrome/Web Speech smoke test.

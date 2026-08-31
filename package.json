@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "build:userscript": "node scripts/build-userscript.mjs"
+    "build:userscript": "node scripts/build-userscript.mjs",
+    "test:emulator": "node scripts/emulator-smoke.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
