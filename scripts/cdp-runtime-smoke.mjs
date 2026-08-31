@@ -4,13 +4,20 @@ import fs from 'node:fs/promises';
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const shouldPlay = process.argv.includes('--play');
 const inspectOnly = process.argv.includes('--inspect');
+const fixtureArg = process.argv.find(arg => arg.startsWith('--fixture='));
+const fixture = fixtureArg?.slice('--fixture='.length) || 'telegram-group-basic.html';
+if (!/^[a-z0-9.-]+\.html$/i.test(fixture)) throw new Error('Invalid fixture name');
 
 const pages = await fetch(`${base}/json/list`).then(response => response.json());
 const page = pages
-  .filter(item =>
-    item.type === 'page'
-    && /\/tests\/fixtures\/telegram-group-basic\.html(?:[?#].*)?$/.test(item.url)
-  )
+  .filter(item => {
+    if (item.type !== 'page') return false;
+    try {
+      return new URL(item.url).pathname === `/tests/fixtures/${fixture}`;
+    } catch {
+      return false;
+    }
+  })
   .sort((a, b) => Number(b.id) - Number(a.id))[0];
 
 if (!page) throw new Error('Telegram runtime fixture page not found');
