@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 
 const base = process.env.CDP_BASE || 'http://127.0.0.1:9223';
 const shouldPlay = process.argv.includes('--play');
+const shouldStop = process.argv.includes('--stop');
 const inspectOnly = process.argv.includes('--inspect');
 const prefArgs = process.argv.filter(arg => arg.startsWith('--pref='));
 const fixtureArg = process.argv.find(arg => arg.startsWith('--fixture='));
@@ -123,6 +124,11 @@ if (shouldPlay) {
     touchPoints: [],
   });
   await new Promise(resolve => setTimeout(resolve, 700));
+}
+
+if (shouldStop) {
+  await evaluate('window.__voxThreadApp.player.stop(); true');
+  await new Promise(resolve => setTimeout(resolve, 50));
 }
 
 const state = await evaluate(`(() => ({
