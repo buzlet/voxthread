@@ -7,7 +7,8 @@
     "test": "node --test tests/*.test.mjs",
     "build:userscript": "node scripts/build-userscript.mjs",
     "test:emulator": "node scripts/emulator-smoke.mjs",
-    "build:dev": "node scripts/build-userscript.mjs --dev"
+    "build:dev": "node scripts/build-userscript.mjs --dev",
+    "test:emulator:runtime": "node scripts/cdp-runtime-smoke.mjs --play"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
