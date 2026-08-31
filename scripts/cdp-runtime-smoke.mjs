@@ -62,8 +62,28 @@ if (!await evaluate('Boolean(window.__voxThreadApp)')) {
 const build = await evaluate('window.__voxThreadApp.buildQueue()');
 
 if (shouldPlay) {
-  await evaluate('window.__voxThreadApp.player.play(); true');
-  await new Promise(resolve => setTimeout(resolve, 500));
+  const playButton = await evaluate(`(() => {
+    const button = [...document.querySelectorAll('#voxthread-reader button')]
+      .find(element => element.textContent.trim() === 'Play');
+    if (!button) return null;
+    const rect = button.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  })()`);
+
+  if (!playButton) throw new Error('VoxThread Play button not found');
+
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: playButton.x, y: playButton.y }],
+  });
+  await cdp('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await new Promise(resolve => setTimeout(resolve, 700));
 }
 
 const state = await evaluate(`(() => ({
@@ -73,6 +93,8 @@ const state = await evaluate(`(() => ({
   queue: window.__voxThreadApp?.queue?.snapshot ?? null,
   playerError: window.__voxThreadApp?.player?.lastError ?? null,
   voiceCount: speechSynthesis.getVoices().length,
+  speaking: speechSynthesis.speaking,
+  pending: speechSynthesis.pending,
 }))()`);
 
 console.log(JSON.stringify(state, null, 2));
