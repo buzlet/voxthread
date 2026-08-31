@@ -3,6 +3,12 @@
 
 This repository is a userscript-first project for reading web chat conversations aloud with human-friendly TTS and distinguishable per-author voices.
 
+## Current handoff
+
+For autonomous GitHub-only continuation while the development server is
+offline, read [`docs/GITHUB_AGENT_HANDOFF.md`](docs/GITHUB_AGENT_HANDOFF.md)
+before starting work.
+
 ## Read before changing code
 
 Read these files first:
