@@ -1,7 +1,7 @@
 <!-- docs/architecture.md -->
 # Architecture
 
-Status: baseline, 2026-08-31.
+Status: baseline, 2026-09-01.
 
 ## Goal
 
@@ -15,16 +15,17 @@ The reader is injected into Telegram Web as a userscript. Browser-specific integ
 
 ## Data flow
 
-`Telegram Web DOM/state -> Telegram adapter -> NormalizedMessage[] -> speech planner -> speech queue -> TTS engine`
+`Telegram Web DOM/state -> Telegram adapter -> NormalizedMessage[] -> speech planner -> playback queue -> TTS backend`
 
-The normalized message model is the stable boundary. Telegram selectors, DOM grouping and browser APIs must not leak into core queue logic.
+The normalized message model and TTS backend are stable boundaries. Telegram selectors, DOM grouping and provider-specific speech APIs must not leak into core queue logic.
 
 ## Modules
 
 - `src/telegram/`: discover visible messages, author identity, ordering and incremental DOM changes.
 - `src/core/`: normalize messages, merge consecutive messages, filtering and playback state.
-- `src/tts/`: voice discovery, deterministic author-to-voice mapping and speech execution.
+- `src/tts/`: provider-neutral TTS boundary, voice policy and provider implementations.
 - `src/ui/`: minimal playback controls and reader diagnostics.
+- `src/runtime/`: thin composition/integration layer for the userscript runtime.
 
 ## Normalized message model
 
@@ -38,18 +39,33 @@ Core code must tolerate missing author labels caused by Telegram bubble grouping
 - Speak author name only when useful, normally on author change.
 - Merge adjacent text messages from the same author when this improves listening flow.
 - Skip service messages by default; media handling is policy-driven.
-- Map an author deterministically to a compatible installed voice.
+- Map an author deterministically to a compatible provider voice when available.
 - Keep voice, rate and pitch policy separate from message extraction.
+
+## TTS provider boundary
+
+The runtime must not call `speechSynthesis`, construct provider utterances, inspect provider-native voice objects or implement provider-specific compatibility rules.
+
+A TTS backend supplies:
+
+- `createPlayer({ queue })`;
+- normalized voice discovery through `listVoices(segment?)`;
+- optional voice-list change notifications;
+- provider-neutral diagnostics.
+
+`WebSpeechBackend` is the default implementation and owns browser Web Speech objects plus `WebSpeechPlayer`. A future native Android or remote backend should replace the composition point rather than change Telegram/core/UI code. See ADR 0003.
+
+Remote TTS remains opt-in architecture work: transmitting Telegram message text off-device requires a separate privacy/security ADR and explicit user configuration.
 
 ## Runtime strategy
 
-Primary candidate: Edge Android + Tampermonkey. Firefox Android remains a required comparison target until locked-screen/background TTS behaviour is measured on-device.
+Primary candidate: Edge Android + Tampermonkey. Firefox Android remains a comparison target until its Android Web Speech/lifecycle behaviour is measured.
 
-Desktop/CI tests use synthetic and captured fixtures. Android tests use Wireless ADB from `u24`; CDP/WebDriver is preferred over coordinate-driven UI automation whenever available.
+GitHub Actions is the primary reproducible development/test environment. Core tests use synthetic/captured fixtures and Android regression runs use a clean API 36 x86_64 emulator. A real Galaxy A57 remains the acceptance target for Samsung-specific power management, audio focus, calls, lock-screen behaviour and final Tampermonkey deployment.
 
 ## Background execution
 
-Browser `speechSynthesis` is an experiment, not an architectural guarantee. If Android suspends queued speech while locked, preserve the normalized/core layers and replace only the runtime/TTS boundary, potentially with native Android foreground-service TTS.
+Browser Web Speech is a provider implementation, not an architectural guarantee. If Android suspends or interrupts it while locked, preserve the normalized/core layers and replace only the TTS/runtime boundary, potentially with native Android TTS in a foreground service. A remote TTS backend is technically possible through the same boundary but changes privacy properties.
 
 ## Security and privacy
 
@@ -60,10 +76,10 @@ Browser `speechSynthesis` is an experiment, not an architectural guarantee. If A
 
 ## Testability
 
-Core modules must run under Node without Telegram or a browser. Browser APIs (`speechSynthesis`, DOM observers, storage, MediaSession) are accessed through thin adapters and can be replaced with fakes in tests.
+Core modules must run under Node without Telegram or a browser. Browser APIs (`speechSynthesis`, DOM observers, storage, MediaSession) are accessed through thin adapters/backends and can be replaced with fakes in tests.
 
 Captured DOM fixtures are treated as compatibility contracts. When Telegram Web changes, update the Telegram adapter and add a fixture reproducing the breakage.
 
 ## Change policy
 
-Every executable experiment is committed before it is run on `u24` or Android. Significant architectural choices are recorded under `docs/decisions/`. Work that is not immediately implemented is assigned a `TWR-xxx` identifier in `docs/backlog.md`.
+Every executable experiment is committed before it is run on Android, a browser or CI. Significant architectural choices are recorded under `docs/decisions/`. Work that is not immediately implemented is assigned a `TWR-xxx` identifier in `docs/backlog.md`.
