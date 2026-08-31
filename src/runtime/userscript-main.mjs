@@ -3,10 +3,16 @@ import { extractTelegramBubbles } from '../telegram/dom-adapter.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import { WebSpeechPlayer } from '../tts/web-speech-player.mjs';
+import {
+  createVoiceResolver,
+  inferLanguageHint,
+  prosodyForAuthor,
+} from '../tts/voice-map.mjs';
 
 const VERSION = '0.5.0';
 const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
+const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
 
 let selectionMode = false;
 let selectedMessageId = null;
@@ -16,10 +22,28 @@ let pauseButton = null;
 
 const queue = new PlaybackQueue(() => renderStatus());
 
+function loadVoiceOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(VOICE_OVERRIDES_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+const voiceOverrides = loadVoiceOverrides();
+
+const voiceResolver = createVoiceResolver({
+  getVoices: () => window.speechSynthesis.getVoices(),
+  overrides: voiceOverrides,
+  languageForSegment: segment => inferLanguageHint(segment.text),
+});
+
 const player = new WebSpeechPlayer({
   queue,
   speechSynthesis: window.speechSynthesis,
   Utterance: window.SpeechSynthesisUtterance,
+  voiceResolver,
+  prosodyResolver: segment => prosodyForAuthor(segment.authorKey),
 });
 
 function isVisible(element) {
@@ -182,6 +206,17 @@ window.__voxThreadApp = {
   queue,
   player,
   buildQueue,
+  setVoiceOverride(authorKey, voiceURI) {
+    if (!voiceURI) delete voiceOverrides[authorKey];
+    else voiceOverrides[authorKey] = String(voiceURI);
+    localStorage.setItem(
+      VOICE_OVERRIDES_KEY,
+      JSON.stringify(voiceOverrides),
+    );
+  },
+  getVoiceOverrides() {
+    return { ...voiceOverrides };
+  },
   get selectedMessageId() {
     return selectedMessageId;
   },

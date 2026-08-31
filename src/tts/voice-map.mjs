@@ -13,6 +13,14 @@ function primaryLanguage(value) {
   return String(value ?? '').trim().toLowerCase().split(/[-_]/)[0] || null;
 }
 
+export function inferLanguageHint(text) {
+  const value = String(text ?? '');
+  if (/[іїєґІЇЄҐ]/u.test(value)) return 'uk-UA';
+  if (/[А-Яа-яЁё]/u.test(value)) return 'ru-RU';
+  if (/[A-Za-z]/u.test(value)) return 'en-US';
+  return null;
+}
+
 export function selectVoice({
   authorKey,
   voices,

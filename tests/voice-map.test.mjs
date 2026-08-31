@@ -68,3 +68,12 @@ test('createVoiceResolver reads the current browser voice list', () => {
   current = voices;
   assert.equal(resolve({ authorKey: 'id:1' }).lang, 'en-US');
 });
+
+test('inferLanguageHint distinguishes common VoxThread languages', async () => {
+  const { inferLanguageHint } = await import('../src/tts/voice-map.mjs');
+
+  assert.equal(inferLanguageHint('Привет, как дела?'), 'ru-RU');
+  assert.equal(inferLanguageHint('Привіт, як справи?'), 'uk-UA');
+  assert.equal(inferLanguageHint('Hello there'), 'en-US');
+  assert.equal(inferLanguageHint('123 😀'), null);
+});
