@@ -14,8 +14,8 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-005 | DOING | P0 | Inspect Telegram Web K message DOM/state and capture sanitized fixtures for private/group chats. |
 | TWR-006 | DONE | P0 | Define and implement the normalized message model and Telegram adapter boundary. |
 | TWR-007 | TODO | P1 | Implement deterministic author-to-voice mapping with language compatibility and persistent overrides. |
-| TWR-008 | DOING | P1 | Implement speech planning: author-change announcements, merging, filtering and pauses. |
-| TWR-009 | TODO | P1 | Implement playback queue with play/pause/resume/stop/previous/next semantics. |
+| TWR-008 | DONE | P1 | Implement speech planning: author-change announcements, merging, filtering and pauses. |
+| TWR-009 | DOING | P1 | Implement playback queue with play/pause/resume/stop/previous/next semantics. |
 | TWR-010 | TODO | P1 | Add incremental message discovery using MutationObserver and virtualized-history scrolling. |
 | TWR-011 | TODO | P1 | Add minimal overlay UI and start-reading-from-selected-message interaction. |
 | TWR-012 | TODO | P1 | Define policy for replies, forwards, links, emoji-only messages, media and Telegram service messages. |
