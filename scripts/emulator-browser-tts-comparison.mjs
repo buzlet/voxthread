@@ -163,35 +163,43 @@ function findBounds(xml, labels) {
   return null;
 }
 
-async function dismissFirefoxOnboarding() {
-  const labels = ['Start browsing', 'Not now', 'Skip', 'Continue', 'Got it'];
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+function tapBounds(bounds) {
+  const [x1, y1, x2, y2] = bounds;
+  adb(
+    'shell', 'input', 'tap',
+    String(Math.floor((x1 + x2) / 2)),
+    String(Math.floor((y1 + y2) / 2)),
+  );
+}
+
+async function uiBounds(labels, attempts = 6) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       adb('shell', 'uiautomator', 'dump', '/sdcard/voxthread-ui.xml');
       const xml = adb('shell', 'cat', '/sdcard/voxthread-ui.xml');
       const bounds = findBounds(xml, labels);
-      if (!bounds) break;
-      const [x1, y1, x2, y2] = bounds;
-      adb(
-        'shell', 'input', 'tap',
-        String(Math.floor((x1 + x2) / 2)),
-        String(Math.floor((y1 + y2) / 2)),
-      );
-      await sleep(500);
-    } catch {
-      break;
-    }
+      if (bounds) return bounds;
+    } catch {}
+    await sleep(300);
+  }
+  return null;
+}
+
+async function dismissFirefoxOnboarding() {
+  const labels = ['Start browsing', 'Not now', 'Skip', 'Continue', 'Got it'];
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const bounds = await uiBounds(labels, 1);
+    if (!bounds) break;
+    tapBounds(bounds);
+    await sleep(500);
   }
 }
 
-function tapScreenCenter() {
-  const output = adb('shell', 'wm', 'size');
-  const match = output.match(/Physical size:\s*(\d+)x(\d+)/)
-    || output.match(/Override size:\s*(\d+)x(\d+)/);
-  if (!match) throw new Error(`Cannot determine emulator screen size: ${output}`);
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-  adb('shell', 'input', 'tap', String(Math.floor(width / 2)), String(Math.floor(height / 2)));
+async function tapProbeButton() {
+  const bounds = await uiBounds(['Start VoxThread probe'], 8);
+  if (!bounds) return false;
+  tapBounds(bounds);
+  return true;
 }
 
 async function waitFor(browser, scenario, predicate, timeoutMs = 9000) {
@@ -218,30 +226,45 @@ function openBrowser(pkg, browser, scenario) {
 }
 
 async function ensureProbeStarted(pkg, browser, scenario) {
-  openBrowser(pkg, browser, scenario);
-  if (browser === 'firefox') {
-    await sleep(1000);
-    await dismissFirefoxOnboarding();
+  for (let launchAttempt = 0; launchAttempt < 3; launchAttempt += 1) {
     openBrowser(pkg, browser, scenario);
+    if (browser === 'firefox') {
+      await sleep(900);
+      await dismissFirefoxOnboarding();
+      openBrowser(pkg, browser, scenario);
+    }
+
+    const ready = await waitFor(
+      browser,
+      scenario,
+      item => ['ready-for-gesture', 'runtime-unavailable', 'window-error'].includes(item.phase),
+      7000,
+    );
+    if (!ready) {
+      await sleep(400);
+      continue;
+    }
+    if (!ready.appReady) return ready;
+
+    const tapped = await tapProbeButton();
+    if (!tapped) {
+      await sleep(400);
+      continue;
+    }
+
+    const started = await waitFor(
+      browser,
+      scenario,
+      item => item.phase === 'play-started' || item.phase === 'window-error',
+      5000,
+    );
+    if (started) return started;
+
+    try { adb('shell', 'am', 'force-stop', pkg); } catch {}
+    await sleep(400);
   }
 
-  const ready = await waitFor(
-    browser,
-    scenario,
-    item => ['ready-for-gesture', 'runtime-unavailable', 'window-error'].includes(item.phase),
-  );
-  if (!ready) throw new Error(`${browser}/${scenario}: probe page did not report readiness`);
-  if (!ready.appReady) return ready;
-
-  tapScreenCenter();
-  const started = await waitFor(
-    browser,
-    scenario,
-    item => item.phase === 'play-started' || item.phase === 'window-error',
-    5000,
-  );
-  if (!started) throw new Error(`${browser}/${scenario}: real touch did not start the probe`);
-  return started;
+  throw new Error(`${browser}/${scenario}: accessibility-targeted real touch did not start the probe`);
 }
 
 async function runScenario(browser, pkg, scenario) {
@@ -307,7 +330,7 @@ const browsers = [
 const scenarios = ['foreground', 'background', 'screen-off'];
 const result = {
   target: 'GitHub/API36 generic Android emulator',
-  gesture: 'adb real touch',
+  gesture: 'adb accessibility-targeted real touch',
   measuredAt: new Date().toISOString(),
   browsers: {},
 };
