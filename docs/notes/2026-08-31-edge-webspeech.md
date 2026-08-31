@@ -37,3 +37,12 @@ The test opened peer `7769142292`, extracted one visible real Telegram message (
 No message text was emitted to the terminal or committed.
 Final counters were `queued=1`, `started=1`, `ended=1`, `errors=[]`.
 This is the first confirmed end-to-end Telegram DOM -> extracted message text -> Android Web Speech execution.
+
+## Real Telegram background and lock-screen test
+
+Userscript `voxthread-004.user.js` queued 16 real visible Telegram messages from peer `-2250600192` without logging message text.
+Foreground start succeeded. After switching to Samsung Launcher, the queue continued (`started=2`, `ended=1`, `errors=[]`).
+After turning the screen off, Android reported `mWakefulness=Dozing`, `mDreamingLockscreen=true`, `isKeyguardShowing=true`; the queue advanced once more to `started=3`, `ended=2`.
+After a longer lock interval, the Edge CDP endpoint stopped responding. The Edge process and `@chrome_devtools_remote` socket remained present, indicating renderer/browser suspension rather than immediate process death.
+After waking the device and bringing Edge forward, CDP recovered but VoxThread state was reset to `queued=0`, `started=0`, `ended=0`; the Telegram page/runtime had been recreated and the queued speech was lost.
+Conclusion: Edge background speech works while merely backgrounded, but long lock-screen playback is not reliable enough for unattended reading.
