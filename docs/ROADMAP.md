@@ -1,6 +1,6 @@
 # Product roadmap
 
-This document keeps product-development ideas that are intentionally not part of the next integration. Order reflects current expected value and architectural leverage, not a permanent promise.
+This document keeps product-development ideas that are intentionally not part of the completed post-v0.7 integration. Order reflects current expected value and architectural leverage, not a permanent promise.
 
 ## 1. Internal normalized-message cache
 
@@ -68,6 +68,6 @@ Once more than one provider exists, define explicit failover/capability selectio
 
 Original proposal item: 12.
 
-## Next integration (tracked in backlog, therefore excluded above)
+## Completed post-v0.7 integration
 
-The next integration is intentionally limited to: persistent per-chat read cursor/resume position, TTS backend API v2/capabilities cleanup, and self-diagnostics/export. These correspond to original proposal items 1, 4 and 8.
+Original proposal items 1, 4 and 8 are implemented and tracked as `TWR-032`, `TWR-033` and `TWR-034`: persistent per-chat read cursor/resume position, TTS backend API v2/provider-neutral capabilities, and privacy-safe self-diagnostics/export.
