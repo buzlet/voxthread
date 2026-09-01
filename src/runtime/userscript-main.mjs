@@ -10,6 +10,7 @@ import {
 } from '../telegram/message-observer.mjs';
 import { createPrivacySafeDiagnostics } from '../core/diagnostics.mjs';
 import { NormalizedMessageCache } from '../core/message-cache.mjs';
+import { isMessageAfter, laterMessage } from '../core/message-order.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import {
@@ -41,7 +42,7 @@ let collapseButton = null;
 let voiceSettingsElement = null;
 let lastBuiltSegments = [];
 let messageObserver = null;
-let latestQueuedTimestamp = null;
+let latestQueuedMessage = null;
 let liveFollow = false;
 let prefetchPending = false;
 let lastPrefetchIndex = -1;
@@ -281,12 +282,7 @@ function buildQueue() {
 
   queue.load(segments, loadOptions);
   lastPrefetchIndex = -1;
-  latestQueuedTimestamp = messages.reduce(
-    (latest, message) => message.timestamp === null
-      ? latest
-      : Math.max(latest ?? message.timestamp, message.timestamp),
-    null,
-  );
+  latestQueuedMessage = messages.at(-1) ?? null;
 
   return {
     messages: messages.length,
@@ -431,9 +427,7 @@ function handleNewMessages(messages) {
   lastObservedBatch = messages.length;
   messageCache.upsert(messages);
   const forward = messages.filter(message =>
-    latestQueuedTimestamp === null
-    || message.timestamp === null
-    || message.timestamp >= latestQueuedTimestamp
+    isMessageAfter(message, latestQueuedMessage)
   );
   if (!forward.length) return;
 
@@ -445,9 +439,7 @@ function handleNewMessages(messages) {
   queue.append(segments);
 
   for (const message of forward) {
-    if (message.timestamp !== null) {
-      latestQueuedTimestamp = Math.max(latestQueuedTimestamp ?? message.timestamp, message.timestamp);
-    }
+    latestQueuedMessage = laterMessage(latestQueuedMessage, message);
   }
   if (liveFollow && wasCompleted) player.play();
 }
