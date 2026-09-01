@@ -11,6 +11,7 @@ import {
   loadReaderPreferences,
   saveReaderPreferences,
 } from '../core/preferences.mjs';
+import { ReadCursorStore } from '../core/read-cursor.mjs';
 import { WebSpeechBackend } from '../tts/web-speech-backend.mjs';
 
 const VERSION =
@@ -21,6 +22,7 @@ const PANEL_ID = 'voxthread-reader';
 const SELECTED_CLASS = 'voxthread-selected-message';
 const VOICE_OVERRIDES_KEY = 'voxthread.voiceOverrides.v1';
 const READER_PREFERENCES_KEY = 'voxthread.readerPreferences.v1';
+const READ_CURSOR_KEY = 'voxthread.readCursor.v1';
 
 let selectionMode = false;
 let selectedMessageId = null;
@@ -37,6 +39,7 @@ let latestQueuedTimestamp = null;
 let liveFollow = false;
 let prefetchPending = false;
 let lastPrefetchIndex = -1;
+let lastQueueStartMode = 'first-visible';
 
 const queue = new PlaybackQueue(onQueueChange);
 
@@ -53,6 +56,9 @@ let readerPreferences = loadReaderPreferences(
   localStorage,
   READER_PREFERENCES_KEY,
 );
+const readCursorStore = new ReadCursorStore(localStorage, READ_CURSOR_KEY, {
+  maxEntries: 100,
+});
 
 const ttsBackend = new WebSpeechBackend({
   speechSynthesis: window.speechSynthesis,
@@ -179,6 +185,21 @@ function renderedBubbles() {
   ].filter(isVisible);
 }
 
+function persistReadCursor(snapshot) {
+  const segment = snapshot.current;
+  if (!segment?.chatId || !segment.messageIds?.length) return;
+  if (!['playing', 'paused', 'completed'].includes(snapshot.status)) return;
+
+  const completed = snapshot.status === 'completed';
+  const messageId = completed
+    ? segment.messageIds.at(-1)
+    : segment.messageIds[0];
+
+  readCursorStore.set(segment.chatId, messageId, {
+    position: completed ? 'after' : 'at',
+  });
+}
+
 function maybePrefetchNewer(snapshot) {
   if (!liveFollow) return;
   if (snapshot.status !== 'playing' && snapshot.status !== 'completed') return;
@@ -204,6 +225,7 @@ function maybePrefetchNewer(snapshot) {
 }
 
 function onQueueChange(snapshot) {
+  persistReadCursor(snapshot);
   renderStatus();
   maybePrefetchNewer(snapshot);
 }
@@ -214,9 +236,26 @@ function buildQueue() {
   lastBuiltSegments = segments;
   renderVoiceSettings();
 
-  queue.load(segments, {
-    startMessageId: selectedMessageId,
-  });
+  const chatId = messages[0]?.chatId ?? segments[0]?.chatId ?? null;
+  const cursor = !selectedMessageId && chatId
+    ? readCursorStore.get(chatId)
+    : null;
+  const loadOptions = {};
+
+  if (selectedMessageId) {
+    loadOptions.startMessageId = selectedMessageId;
+    lastQueueStartMode = 'selected';
+  } else if (cursor?.position === 'after') {
+    loadOptions.afterMessageId = cursor.messageId;
+    lastQueueStartMode = 'first-unread';
+  } else if (cursor) {
+    loadOptions.startMessageId = cursor.messageId;
+    lastQueueStartMode = 'resume';
+  } else {
+    lastQueueStartMode = 'first-visible';
+  }
+
+  queue.load(segments, loadOptions);
   lastPrefetchIndex = -1;
 
   latestQueuedTimestamp = messages.reduce(
@@ -230,6 +269,9 @@ function buildQueue() {
   return {
     messages: messages.length,
     segments: segments.length,
+    chatId,
+    cursor,
+    startMode: lastQueueStartMode,
   };
 }
 
@@ -246,6 +288,8 @@ function diagnosticsSnapshot() {
     }),
     reader: Object.freeze({
       selectedStart: Boolean(selectedMessageId),
+      startMode: lastQueueStartMode,
+      storedChatCursors: readCursorStore.count,
       liveFollow,
       visibleMessages: renderedBubbles().length,
     }),
@@ -271,7 +315,7 @@ function renderStatus() {
     `VoxThread ${VERSION}`,
     selectionMode ? 'tap message' : `state: ${queue.status}`,
     `segment: ${queue.index + 1}/${queue.length}`,
-    selectedMessageId ? `start: ${selectedMessageId}` : 'start: first visible',
+    `start: ${lastQueueStartMode}`,
     currentIds.length ? `mid: ${currentIds[0]}` : '',
     player.lastError ? `tts error: ${player.lastError}` : '',
   ].filter(Boolean).join(' · ');
@@ -410,7 +454,11 @@ function playFromSelection() {
 
   liveFollow = true;
   startMessageObserver();
-  player.play();
+
+  // A completed `after` cursor means everything currently visible was already
+  // consumed. Keep live-follow armed without replaying the queue from index 0.
+  if (queue.status !== 'completed') player.play();
+  else renderStatus();
 }
 
 function togglePause() {
@@ -586,6 +634,12 @@ window.__voxThreadApp = {
   },
   getReaderPreferences() {
     return { ...readerPreferences };
+  },
+  getReadCursor(chatId) {
+    return readCursorStore.get(chatId);
+  },
+  clearReadCursor(chatId) {
+    return readCursorStore.clear(chatId);
   },
   getDiagnostics: diagnosticsSnapshot,
   get selectedMessageId() {

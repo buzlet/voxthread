@@ -18,6 +18,23 @@ test('loads and starts from requested message', () => {
   assert.equal(q.current.text, 'two three');
 });
 
+test('loads after a completed read cursor', () => {
+  const q = new PlaybackQueue();
+  q.load(segments, { afterMessageId: '3' });
+
+  assert.equal(q.status, 'ready');
+  assert.equal(q.index, 2);
+  assert.equal(q.current.text, 'four');
+});
+
+test('marks the queue completed when an after-cursor points at its final message', () => {
+  const q = new PlaybackQueue();
+  q.load(segments, { afterMessageId: '4' });
+
+  assert.equal(q.status, 'completed');
+  assert.equal(q.index, 2);
+});
+
 test('supports play pause resume and stop', () => {
   const q = new PlaybackQueue();
   q.load(segments);

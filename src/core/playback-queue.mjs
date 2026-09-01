@@ -39,16 +39,29 @@ export class PlaybackQueue {
     return this.snapshot;
   }
 
-  load(segments, { startMessageId = null } = {}) {
+  #indexForMessage(messageId) {
+    const target = String(messageId);
+    return this.#segments.findIndex(segment =>
+      segment.messageIds?.includes?.(target)
+    );
+  }
+
+  load(segments, { startMessageId = null, afterMessageId = null } = {}) {
     this.#segments = [...segments];
     this.#index = this.#segments.length ? 0 : -1;
     this.#status = this.#segments.length ? 'ready' : 'empty';
 
     if (startMessageId !== null) {
-      const found = this.#segments.findIndex(segment =>
-        segment.messageIds?.includes?.(String(startMessageId))
-      );
+      const found = this.#indexForMessage(startMessageId);
       if (found >= 0) this.#index = found;
+    } else if (afterMessageId !== null) {
+      const found = this.#indexForMessage(afterMessageId);
+      if (found >= 0 && found < this.#segments.length - 1) {
+        this.#index = found + 1;
+      } else if (found === this.#segments.length - 1 && found >= 0) {
+        this.#index = found;
+        this.#status = 'completed';
+      }
     }
 
     return this.#emit();
@@ -133,10 +146,7 @@ export class PlaybackQueue {
   }
 
   seekToMessage(messageId) {
-    const target = String(messageId);
-    const found = this.#segments.findIndex(segment =>
-      segment.messageIds?.includes?.(target)
-    );
+    const found = this.#indexForMessage(messageId);
 
     if (found < 0) return false;
 
