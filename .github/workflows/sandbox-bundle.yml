@@ -1,0 +1,60 @@
+# .github/workflows/sandbox-bundle.yml
+name: Sandbox bundle
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:dev
+      - run: npm run build:userscript
+      - run: npm run verify:userscript
+      - name: Build single sandbox bundle
+        shell: bash
+        run: |
+          mkdir bundle
+          git archive --format=tar.gz --output=bundle/source.tgz HEAD
+          tar -C "$HOME" -czf bundle/npm-cache.tgz .npm
+          cp tools/sandboxctl.py bundle/sandboxctl.py
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          raw = subprocess.check_output(["git", "ls-files", "-s", "-z"])
+          files = []
+          for item in raw.split(b"\0"):
+              if not item: continue
+              left, path = item.split(b"\t", 1)
+              mode, sha, stage = left.decode().split()
+              if stage == "0": files.append({"path": path.decode(), "sha": sha, "mode": mode})
+          sha256 = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          doc = {
+              "schema": 1,
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "branch": os.environ["GITHUB_REF_NAME"],
+              "commit": os.environ["GITHUB_SHA"],
+              "tree": subprocess.check_output(["git","rev-parse","HEAD^{tree}"], text=True).strip(),
+              "node": "22.16.0",
+              "package_lock_sha256": sha256("package-lock.json"),
+              "source_sha256": sha256("bundle/source.tgz"),
+              "npm_cache_sha256": sha256("bundle/npm-cache.tgz"),
+              "files": files,
+          }
+          Path("bundle/manifest.json").write_text(json.dumps(doc, indent=2) + "\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-bundle-${{ github.sha }}
+          path: bundle/
+          retention-days: 30
+          compression-level: 0
