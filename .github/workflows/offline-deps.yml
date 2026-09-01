@@ -1,0 +1,27 @@
+# .github/workflows/offline-deps.yml
+name: Offline dependency cache
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - package-lock.json
+      - .github/workflows/offline-deps.yml
+permissions:
+  contents: read
+jobs:
+  npm-cache:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Pack npm cache
+        run: tar -C "$HOME" -czf npm-cache-linux-node22.tgz .npm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-cache-linux-node22-${{ hashFiles('package-lock.json') }}
+          path: npm-cache-linux-node22.tgz
+          retention-days: 30
+          compression-level: 0

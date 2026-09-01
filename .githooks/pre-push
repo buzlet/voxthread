@@ -1,0 +1,8 @@
+#!/bin/sh
+# .githooks/pre-push
+set -eu
+npm test
+npm run build:dev
+npm run build:userscript
+npm run verify:userscript
+git diff --exit-code -- dist/ 2>/dev/null || true
