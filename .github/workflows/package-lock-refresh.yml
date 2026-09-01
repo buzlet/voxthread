@@ -1,0 +1,26 @@
+name: Package lock refresh
+on:
+  push:
+    branches:
+      - feature/sandbox-sync-integrity
+    paths:
+      - package.json
+      - .github/workflows/package-lock-refresh.yml
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: npm ci
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-lock-${{ github.sha }}
+          path: package-lock.json
+          retention-days: 7
