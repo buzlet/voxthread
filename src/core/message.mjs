@@ -19,6 +19,11 @@ function numberOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function nonNegativeIntegerOrNull(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
 function normalizeEntities(value) {
   if (!Array.isArray(value)) return Object.freeze([]);
   return Object.freeze(value
@@ -31,6 +36,7 @@ function normalizeEntities(value) {
         text,
         href: stringOrNull(entity.href),
         language: stringOrNull(entity.language),
+        occurrence: nonNegativeIntegerOrNull(entity.occurrence),
       });
     })
     .filter(Boolean));
