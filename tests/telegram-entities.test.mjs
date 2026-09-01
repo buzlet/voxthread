@@ -1,6 +1,7 @@
 // tests/telegram-entities.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
 import { extractTelegramBubble } from '../src/telegram/dom-adapter.mjs';
 
 function classList(...names) {
@@ -54,11 +55,35 @@ test('extracts structured Telegram speech entities from message DOM', () => {
 
   const message = extractTelegramBubble(bubble);
   assert.deepEqual(message.entities, [
-    { type: 'link', text: 'docs', href: 'https://example.com/a', language: null },
-    { type: 'mention', text: '@alice', href: null, language: null },
-    { type: 'hashtag', text: '#release', href: null, language: null },
-    { type: 'pre', text: 'const x = 1', href: null, language: 'js' },
-    { type: 'spoiler', text: 'secret', href: null, language: null },
-    { type: 'quote', text: 'quoted', href: null, language: null },
+    { type: 'link', text: 'docs', href: 'https://example.com/a', language: null, occurrence: null },
+    { type: 'mention', text: '@alice', href: null, language: null, occurrence: null },
+    { type: 'hashtag', text: '#release', href: null, language: null, occurrence: null },
+    { type: 'pre', text: 'const x = 1', href: null, language: 'js', occurrence: null },
+    { type: 'spoiler', text: 'secret', href: null, language: null, occurrence: null },
+    { type: 'quote', text: 'quoted', href: null, language: null, occurrence: null },
   ]);
+});
+
+test('records the exact occurrence of repeated structured entity text', () => {
+  const dom = new JSDOM(`<!doctype html>
+    <div class="bubble is-in" data-mid="101" data-peer-id="-20">
+      <span class="peer-title" data-peer-id="77">Author</span>
+      <span class="translatable-message">ls обычный текст, потом <code>ls</code></span>
+    </div>`);
+
+  try {
+    const bubble = dom.window.document.querySelector('.bubble[data-mid]');
+    const message = extractTelegramBubble(bubble);
+    const code = message.entities.find(item => item.type === 'code');
+
+    assert.deepEqual(code, {
+      type: 'code',
+      text: 'ls',
+      href: null,
+      language: null,
+      occurrence: 1,
+    });
+  } finally {
+    dom.window.close();
+  }
 });
