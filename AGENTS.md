@@ -9,8 +9,14 @@ If direct GitHub/npm network access or a real Git clone is unavailable, **before
 
 That protocol is mandatory and is the source of truth for sandbox synchronization. Use only the exact-HEAD `sandbox-bundle-<SHA>` + `sandboxctl.py` transaction workflow. Do not invent, revive, or use another synchronization path. If the mandated mechanism fails, fix it or stop the transaction; do not bypass it.
 
+**Every chat/agent that writes repository content must first create a fresh dedicated branch. Never write directly to `main`, an integration branch, a pre-existing shared branch, or a branch owned by another active chat/agent. One active writer owns one branch.**
+
+After any interruption, read remote HEAD and run `sandboxctl.py recover <workdir> <remote-head>` before deciding whether work or publication may resume. Never guess whether a previous push completed.
+
 In particular, never:
 
+- modify `main`, an integration branch, or another agent's branch;
+- let two independent chats/agents write the same branch;
 - work from an older bundle when the current branch HEAD has no bundle yet;
 - combine separate source/dependency artifacts;
 - rely on Git hooks inside the sandbox;
@@ -73,6 +79,8 @@ On `u24`, project operations are performed as the dedicated `gpt` user with `HOM
 
 This summary does not replace `docs/SANDBOX_TRANSACTION_PROTOCOL.md`.
 
-`START exact HEAD → exact-SHA bundle → sandboxctl pull → WORK(active) → sandboxctl prepare-push → re-read remote HEAD → atomic connector commit with force=false → sandboxctl mark-pushed → STALE`.
+`NEW OWNED BRANCH → START exact HEAD → exact-SHA bundle → sandboxctl pull → WORK(active) → sandboxctl prepare-push → remote gate → create one connector commit object → sandboxctl record-commit → final remote gate → update_ref(force=false) → sandboxctl mark-pushed → STALE`.
+
+After a crash/restart: `remote HEAD → sandboxctl recover`. The recorded `transaction_id`, phase, base SHA, pending commit SHA/tree and timestamps determine the only safe recovery action.
 
 Do not leave unpushed sandbox changes between agent turns. If work is incomplete but valid, create a tested checkpoint commit and start the next turn from its new exact-SHA bundle.

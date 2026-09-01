@@ -7,7 +7,9 @@ Repository: https://github.com/buzlet/voxthread
 
 If the agent is running in a network-isolated ChatGPT sandbox without direct GitHub/npm access and without a real Git clone, **the very first operational step is to read [`docs/SANDBOX_TRANSACTION_PROTOCOL.md`](SANDBOX_TRANSACTION_PROTOCOL.md)**.
 
-That protocol is mandatory and overrides any older synchronization instructions, chat history, remembered workflow, or ad-hoc workaround. Use only the exact-HEAD `sandbox-bundle-<SHA>` and `sandboxctl.py` transaction model. Do not use stale bundles, manual source/cache combinations, Git hooks as sandbox enforcement, sparse sync, per-file multi-commit pushes, or continued editing after `mark-pushed`.
+That protocol is mandatory and overrides any older synchronization instructions, chat history, remembered workflow, or ad-hoc workaround. **Before any content change, create a fresh dedicated branch for this chat/task. Never write directly to `main`, an integration branch, an existing shared branch, or another active agent's branch. One active writer owns one branch.** Use only the exact-HEAD `sandbox-bundle-<SHA>` and `sandboxctl.py` transaction model. Do not use stale bundles, manual source/cache combinations, Git hooks as sandbox enforcement, sparse sync, per-file multi-commit pushes, or continued editing after `mark-pushed`.
+
+After any interruption, do not infer whether a push completed. Read the branch remote HEAD and run `sandboxctl.py recover <workdir> <remote-head>` first. Follow only the recovery action derived from the recorded transaction phase and pending commit metadata.
 
 If the mandated sandbox mechanism fails, fix the mechanism or stop that transaction. **Do not create a second synchronization method.**
 
@@ -64,7 +66,9 @@ Before running changed executable code on external environments:
 
 Do not apply the ordinary clone/worktree sequence as a substitute. Follow `docs/SANDBOX_TRANSACTION_PROTOCOL.md` exactly:
 
-`START exact remote HEAD → exact-SHA bundle → sandboxctl pull → WORK(active) → sandboxctl prepare-push → re-read remote HEAD → atomic connector commit(force=false) → sandboxctl mark-pushed → STALE`.
+`NEW OWNED BRANCH → START exact remote HEAD → exact-SHA bundle → sandboxctl pull → WORK(active) → sandboxctl prepare-push → remote gate → create one connector commit object → sandboxctl record-commit → final remote gate → update_ref(force=false) → sandboxctl mark-pushed → STALE`.
+
+Crash/restart recovery always starts with `remote HEAD → sandboxctl recover`. Never rerun a push blindly.
 
 A sandbox transaction must not cross an agent-turn boundary with unpushed local changes. Make a tested checkpoint commit if necessary.
 

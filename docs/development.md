@@ -5,7 +5,9 @@
 
 When running in a network-isolated ChatGPT sandbox without direct GitHub/npm access and without a real Git clone, **do not use the ordinary clone/worktree workflow below**. Read and follow [`SANDBOX_TRANSACTION_PROTOCOL.md`](SANDBOX_TRANSACTION_PROTOCOL.md) exactly.
 
-The sandbox workflow has one valid synchronization path only: exact remote HEAD → successful `sandbox-bundle-<HEAD>` → `sandboxctl.py` transaction → remote HEAD recheck → atomic GitHub connector commit → stale workspace. No older bundle, ad-hoc sync, Git-hook-based enforcement, manual artifact mixing, or continued work after push is permitted.
+The sandbox workflow has one valid synchronization path only. Before the first content change, create a **new dedicated branch for this chat/task**. Never develop directly on `main`, an integration branch, an existing shared branch, or another chat's branch. One active chat/agent owns one branch. Then use exact remote HEAD → successful `sandbox-bundle-<HEAD>` → `sandboxctl.py` transaction → remote gates → recorded pending commit → atomic GitHub ref update → stale workspace. No older bundle, ad-hoc sync, Git-hook-based enforcement, manual artifact mixing, or continued work after push is permitted.
+
+After any interruption, re-read remote HEAD and run `sandboxctl.py recover <workdir> <remote-head>` before resuming. Recovery metadata includes a transaction ID, phase, timestamps and pending commit/tree SHA so the agent can distinguish an unpublished commit from a push that succeeded just before the crash.
 
 Dependency/environment changes are transaction boundaries. A change to `package.json`, `package-lock.json`, Node baseline or another build/runtime dependency must be committed separately, validated by GitHub, and followed by a fresh sandbox transaction from the bundle for that dependency commit before feature work continues.
 
@@ -30,7 +32,7 @@ This makes every reported behaviour attributable to an exact Git revision.
 
 GitHub is the authoritative and reproducible development/test environment. Do not depend on `u24` or another always-on host.
 
-- Work in a branch based on current `main`.
+- For every independent chat/task that writes code, create a fresh dedicated branch from the chosen current integration/base SHA; never use `main` itself as an agent workspace.
 - Push complete commits to GitHub.
 - `CI` runs Node tests and reproducible userscript builds.
 - `Sandbox bundle` creates the single exact-commit bootstrap artifact used by the network-isolated sandbox.
