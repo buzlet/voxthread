@@ -29,5 +29,6 @@ npm run test:emulator:lifecycle
 npm run test:emulator:live
 npm run test:emulator:selection
 npm run test:emulator:cursor
+npm run test:emulator:cache
 npm run test:emulator:matrix
 npm run test:emulator:media-anchor
