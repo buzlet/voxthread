@@ -90,12 +90,14 @@ export class PlaybackQueue {
 
   replacePendingForMessage(messageId, replacementSegments = []) {
     const found = this.#indexForMessage(messageId);
-    if (found < 0) return false;
-    if (found < this.#index) return false;
-    if (
-      found === this.#index
-      && (this.#status === 'playing' || this.#status === 'paused')
-    ) return false;
+    if (found < 0 || found < this.#index) return false;
+
+    const currentAlreadyConsumed = [
+      'playing',
+      'paused',
+      'completed',
+    ].includes(this.#status);
+    if (found === this.#index && currentAlreadyConsumed) return false;
 
     const replacements = [...replacementSegments];
     const oldIndex = this.#index;
@@ -109,9 +111,7 @@ export class PlaybackQueue {
       this.#index = Math.max(0, oldIndex + delta);
     } else if (found === oldIndex) {
       this.#index = Math.min(found, this.#segments.length - 1);
-      if (this.#status === 'completed' || this.#status === 'stopped') {
-        this.#status = 'ready';
-      }
+      if (this.#status === 'stopped') this.#status = 'ready';
     }
 
     this.#rebuildMessageIndex();
