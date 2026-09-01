@@ -70,9 +70,31 @@ test('backend owns Web Speech objects and creates a playback provider', () => {
   assert.equal(synth.spoken.length, 1);
   assert.equal(synth.spoken[0].voice?.voiceURI, 'en');
   assert.equal(backend.diagnostics(player).provider, 'web-speech');
+  assert.equal(backend.apiVersion, 2);
 });
 
-test('backend exposes normalized language-compatible voices', () => {
+test('backend API v2 exposes provider-neutral capabilities', () => {
+  const backend = new WebSpeechBackend({
+    speechSynthesis: fakeSynth(),
+    Utterance: FakeUtterance,
+    maxUtteranceChars: 420,
+  });
+
+  assert.deepEqual(backend.getCapabilities(), {
+    apiVersion: 2,
+    provider: 'web-speech',
+    execution: 'browser',
+    network: 'provider-dependent',
+    background: 'runtime-dependent',
+    voiceSelection: true,
+    pauseResume: true,
+    streaming: false,
+    wordBoundary: false,
+    maxTextLength: 420,
+  });
+});
+
+test('backend exposes normalized language-compatible voices without native objects', () => {
   const backend = new WebSpeechBackend({
     speechSynthesis: fakeSynth([
       { voiceURI: 'en', name: 'English', lang: 'en-US' },
@@ -83,7 +105,14 @@ test('backend exposes normalized language-compatible voices', () => {
 
   const voices = backend.listVoices({ text: 'Привет, мир' });
   assert.deepEqual(voices.map(voice => voice.id), ['ru']);
-  assert.equal(voices[0].native.voiceURI, 'ru');
+  assert.equal('native' in voices[0], false);
+  assert.deepEqual(Object.keys(voices[0]).sort(), [
+    'default',
+    'id',
+    'lang',
+    'local',
+    'name',
+  ]);
 });
 
 test('backend owns provider-specific voice change events', () => {

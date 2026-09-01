@@ -5,6 +5,10 @@ import {
   inferLanguageHint,
   prosodyForAuthor,
 } from './voice-map.mjs';
+import {
+  normalizeTtsCapabilities,
+  TTS_BACKEND_API_VERSION,
+} from './backend-contract.mjs';
 
 function primaryLanguage(value) {
   return String(value ?? '').toLowerCase().split(/[-_]/)[0] || null;
@@ -17,17 +21,15 @@ function normalizeVoice(voice) {
     lang: String(voice?.lang || ''),
     local: Boolean(voice?.localService),
     default: Boolean(voice?.default),
-    native: voice,
   });
 }
 
 /**
- * Provider boundary for browser Web Speech.
+ * TTS backend API v2 implementation for browser Web Speech.
  *
- * The application runtime talks to this object rather than directly to
- * speechSynthesis/SpeechSynthesisUtterance. A remote/native TTS provider can
- * replace this class by implementing the same small surface:
- * createPlayer(), listVoices(), onVoicesChanged(), diagnostics().
+ * Provider-native voice/utterance objects never leave this class. Runtime/core
+ * code talks only to normalized voice descriptors, normalized capabilities and
+ * the provider-neutral player surface.
  */
 export class WebSpeechBackend {
   constructor({
@@ -47,11 +49,26 @@ export class WebSpeechBackend {
     this.Utterance = Utterance;
     this.voiceOverrides = voiceOverrides;
     this.maxUtteranceChars = maxUtteranceChars;
+    this.apiVersion = TTS_BACKEND_API_VERSION;
   }
 
   #rawVoices() {
     const voices = this.speechSynthesis.getVoices?.();
     return Array.isArray(voices) ? voices : [];
+  }
+
+  getCapabilities() {
+    return normalizeTtsCapabilities({
+      provider: 'web-speech',
+      execution: 'browser',
+      network: 'provider-dependent',
+      background: 'runtime-dependent',
+      voiceSelection: true,
+      pauseResume: true,
+      streaming: false,
+      wordBoundary: false,
+      maxTextLength: this.maxUtteranceChars,
+    });
   }
 
   createPlayer({ queue }) {
@@ -97,6 +114,8 @@ export class WebSpeechBackend {
     const voices = this.#rawVoices();
     return Object.freeze({
       provider: 'web-speech',
+      apiVersion: this.apiVersion,
+      capabilities: this.getCapabilities(),
       speaking: Boolean(this.speechSynthesis.speaking),
       pending: Boolean(this.speechSynthesis.pending),
       paused: Boolean(this.speechSynthesis.paused),
