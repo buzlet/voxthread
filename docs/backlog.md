@@ -38,3 +38,6 @@ Status values: `TODO`, `DOING`, `BLOCKED`, `DONE`, `DROPPED`.
 | TWR-029 | DONE | P1 | Add one-command emulator release gate covering unit, Web Speech, lifecycle, live-follow and real-touch selection regressions. |
 | TWR-030 | DONE | P0 | Isolate TTS behind a replaceable backend boundary so browser Web Speech can be replaced by remote/native speech without changes to Telegram, planner or queue layers. |
 | TWR-031 | BLOCKED | P0 | Final physical Galaxy acceptance: Samsung lock screen/Doze, phone-call and audio-focus behaviour, and real Tampermonkey install/update verification. Requires the physical device and is not a software-development blocker. |
+| TWR-032 | TODO | P0 | Persist a per-chat read cursor and resume position so VoxThread can continue from the last spoken message or intentionally start from the first unread/selected message. |
+| TWR-033 | TODO | P0 | Evolve the TTS backend contract to API v2 with provider-neutral capabilities and no provider-native objects leaking through the public interface. |
+| TWR-034 | TODO | P1 | Add privacy-safe self-diagnostics/export covering version, runtime, adapter state, TTS capabilities/errors and playback queue state. |

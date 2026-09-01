@@ -2,8 +2,14 @@ name: Release userscript
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths:
+      - 'CHANGELOG.md'
+      - 'package.json'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       tag:
@@ -15,7 +21,42 @@ permissions:
   contents: write
 
 jobs:
+  tag-current-version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Create immutable package-version tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v$(node -p "require('./package.json').version")"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            TARGET="$(git rev-list -n 1 "$TAG")"
+            test "$TARGET" = "$GITHUB_SHA" || {
+              echo "Tag $TAG already exists at $TARGET, refusing to move immutable release tag to $GITHUB_SHA" >&2
+              exit 1
+            }
+            echo "Tag $TAG already points to this commit."
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TAG" "$GITHUB_SHA" -m "VoxThread $TAG"
+          git push origin "refs/tags/$TAG"
+          echo "Created $TAG at $GITHUB_SHA"
+
   release:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
