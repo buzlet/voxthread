@@ -22,16 +22,18 @@ def safe_extract(tf, dst):
 
 def changes(root, st=None):
     root, st = Path(root), st or state(root)
-    base = {x["path"]: x["sha"] for x in st["files"]}
+    base = {x["path"]: x for x in st["files"]}
     out = []
-    for rel, expected in base.items():
+    for rel, entry in base.items():
         p = root / rel
         got = git_sha(p.read_bytes()) if p.is_file() else None
-        if got != expected: out.append({"path": rel, "kind": "modified" if got else "deleted", "sha": got})
+        if got != entry["sha"]: out.append({"path": rel, "kind": "modified" if got else "deleted", "sha": got, "mode": entry["mode"]})
     for p in root.rglob("*"):
         if not p.is_file() or any(x in IGNORE for x in p.relative_to(root).parts): continue
         rel = p.relative_to(root).as_posix()
-        if rel not in base: out.append({"path": rel, "kind": "added", "sha": git_sha(p.read_bytes())})
+        if rel not in base:
+            mode = "100755" if p.stat().st_mode & 0o111 else "100644"
+            out.append({"path": rel, "kind": "added", "sha": git_sha(p.read_bytes()), "mode": mode})
     return sorted(out, key=lambda x: x["path"])
 
 def require(root, phase="active"):
