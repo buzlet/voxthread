@@ -1,18 +1,48 @@
 // src/telegram/message-observer.mjs
-import { extractTelegramBubbles } from './dom-adapter.mjs';
+import {
+  extractTelegramBubbles,
+  TelegramAuthorContext,
+} from './dom-adapter.mjs';
+
+const BUBBLE_SELECTOR = '.bubble[data-mid]';
 
 function keyOf(message) {
   return `${message.chatId}:${message.id}`;
 }
 
+function collectAddedBubbles(records) {
+  const bubbles = [];
+  const unique = new Set();
+
+  const add = bubble => {
+    if (!bubble || unique.has(bubble)) return;
+    unique.add(bubble);
+    bubbles.push(bubble);
+  };
+
+  for (const record of records ?? []) {
+    for (const node of record?.addedNodes ?? []) {
+      if (node?.matches?.(BUBBLE_SELECTOR)) add(node);
+      for (const bubble of node?.querySelectorAll?.(BUBBLE_SELECTOR) ?? []) {
+        add(bubble);
+      }
+    }
+  }
+
+  return bubbles;
+}
+
 export class TelegramMessageObserver {
   #observer = null;
   #seen = new Set();
+  #authorContext = new TelegramAuthorContext();
+  #mutationBatches = 0;
 
   constructor({
     root,
     MutationObserverCtor = globalThis.MutationObserver,
     onMessages = null,
+    reconcileEvery = 25,
   }) {
     if (!root?.querySelectorAll) {
       throw new TypeError('TelegramMessageObserver.root must support querySelectorAll');
@@ -21,11 +51,10 @@ export class TelegramMessageObserver {
     this.root = root;
     this.MutationObserverCtor = MutationObserverCtor;
     this.onMessages = typeof onMessages === 'function' ? onMessages : null;
+    this.reconcileEvery = Math.max(1, Number(reconcileEvery) || 25);
   }
 
-  scan({ emit = true } = {}) {
-    const bubbles = [...this.root.querySelectorAll('.bubble[data-mid]')];
-    const messages = extractTelegramBubbles(bubbles);
+  #accept(messages, { emit = true } = {}) {
     const fresh = [];
 
     for (const message of messages) {
@@ -39,11 +68,42 @@ export class TelegramMessageObserver {
     return fresh;
   }
 
+  #extract(bubbles, options) {
+    return this.#accept(
+      extractTelegramBubbles(bubbles, {
+        authorContext: this.#authorContext,
+      }),
+      options,
+    );
+  }
+
+  scan({ emit = true } = {}) {
+    const bubbles = [...this.root.querySelectorAll(BUBBLE_SELECTOR)];
+    return this.#extract(bubbles, { emit });
+  }
+
+  processMutations(records, { emit = true } = {}) {
+    const bubbles = collectAddedBubbles(records);
+    const fresh = bubbles.length
+      ? this.#extract(bubbles, { emit })
+      : [];
+
+    this.#mutationBatches += 1;
+    if (this.#mutationBatches % this.reconcileEvery === 0) {
+      const reconciled = this.scan({ emit });
+      return fresh.length ? [...fresh, ...reconciled] : reconciled;
+    }
+
+    return fresh;
+  }
+
   start({ emitInitial = true } = {}) {
     if (this.#observer) return this.scan();
 
     const initial = this.scan({ emit: emitInitial });
-    this.#observer = new this.MutationObserverCtor(() => this.scan());
+    this.#observer = new this.MutationObserverCtor(records => {
+      this.processMutations(records);
+    });
     this.#observer.observe(this.root, {
       childList: true,
       subtree: true,
@@ -60,8 +120,16 @@ export class TelegramMessageObserver {
     this.#seen.clear();
   }
 
+  resetContext() {
+    this.#authorContext.reset();
+  }
+
   get seenCount() {
     return this.#seen.size;
+  }
+
+  get authorContextSize() {
+    return this.#authorContext.size;
   }
 }
 
