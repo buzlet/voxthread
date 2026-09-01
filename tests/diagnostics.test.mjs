@@ -70,6 +70,7 @@ test('diagnostics report exposes useful runtime state but drops private identifi
   });
   assert.equal(report.adapter.visibleBubbles, 17);
   assert.equal(report.tts.capabilities.apiVersion, 2);
+  assert.equal(report.tts.errorCode, 'interrupted');
   assert.equal(report.privacy.includesMessageText, false);
   assert.equal(Object.isFrozen(report), true);
 
@@ -86,13 +87,11 @@ test('diagnostics report exposes useful runtime state but drops private identifi
   }
 });
 
-test('diagnostics reduces free-form TTS errors to a bounded code-like token', () => {
+test('diagnostics replaces unknown free-form TTS errors instead of exporting their text', () => {
   const report = createPrivacySafeDiagnostics({
-    tts: { error: 'interrupted because private message text appeared here' },
+    tts: { error: 'interrupted because SECRET MESSAGE TEXT appeared here' },
   });
 
-  assert.equal(
-    report.tts.errorCode,
-    'interrupted_because_private_message_text_appeared_here',
-  );
+  assert.equal(report.tts.errorCode, 'provider-error');
+  assert.equal(JSON.stringify(report).includes('SECRET MESSAGE TEXT'), false);
 });

@@ -10,6 +10,19 @@ const PREFERENCE_KEYS = [
   'panelCollapsed',
 ];
 
+const KNOWN_TTS_ERROR_CODES = new Set([
+  'interrupted',
+  'canceled',
+  'not-allowed',
+  'audio-busy',
+  'network',
+  'synthesis-failed',
+  'language-unavailable',
+  'voice-unavailable',
+  'text-too-long',
+  'invalid-argument',
+]);
+
 function count(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.floor(number) : 0;
@@ -37,10 +50,10 @@ function browserRuntime(userAgent = '') {
 
 function safeErrorCode(value) {
   if (!value) return null;
-  const normalized = String(value)
-    .slice(0, 80)
-    .replace(/[^a-z0-9_.:-]+/gi, '_');
-  return normalized || 'unknown';
+  const normalized = String(value).trim().toLowerCase();
+  return KNOWN_TTS_ERROR_CODES.has(normalized)
+    ? normalized
+    : 'provider-error';
 }
 
 function capabilities(value = {}) {
