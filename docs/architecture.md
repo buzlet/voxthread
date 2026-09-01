@@ -22,8 +22,8 @@ The normalized message model and TTS backend are stable boundaries. Telegram sel
 ## Modules
 
 - `src/telegram/`: discover visible messages, author identity, ordering and incremental DOM changes.
-- `src/core/`: normalize messages, merge consecutive messages, filtering and playback state.
-- `src/tts/`: provider-neutral TTS boundary, voice policy and provider implementations.
+- `src/core/`: normalize messages, speech/read state, queueing, read cursors and privacy-safe diagnostics.
+- `src/tts/`: provider-neutral TTS API v2, voice policy and provider implementations.
 - `src/ui/`: minimal playback controls and reader diagnostics.
 - `src/runtime/`: thin composition/integration layer for the userscript runtime.
 
@@ -32,6 +32,12 @@ The normalized message model and TTS backend are stable boundaries. Telegram sel
 Each message should expose at least: stable message ID, chat ID, author ID/name, text, type, reply metadata, media metadata, timestamp/order key and source element/reference when available.
 
 Core code must tolerate missing author labels caused by Telegram bubble grouping and recover the author through adapter context.
+
+## Read cursor
+
+VoxThread persists a small per-chat read cursor, not message content. The cursor records only chat/message identifiers, whether playback should resume `at` the message or `after` a fully completed message, and an update timestamp.
+
+An interrupted/current segment is stored as `at`, so a restart repeats rather than silently skips it. A fully completed final segment is stored as `after`, allowing a later run to begin with the first newly available message. Cursor storage is bounded and is deliberately separate from the future normalized-message cache described in the roadmap.
 
 ## Speech policy
 
@@ -46,16 +52,25 @@ Core code must tolerate missing author labels caused by Telegram bubble grouping
 
 The runtime must not call `speechSynthesis`, construct provider utterances, inspect provider-native voice objects or implement provider-specific compatibility rules.
 
-A TTS backend supplies:
+TTS backend API v2 supplies:
 
+- `apiVersion` and normalized `getCapabilities()` metadata;
 - `createPlayer({ queue })`;
 - normalized voice discovery through `listVoices(segment?)`;
 - optional voice-list change notifications;
 - provider-neutral diagnostics.
 
+Capabilities describe provider/execution type, network requirements, background expectations, voice selection, pause/resume, streaming, word-boundary support and provider text limits. Provider-native voice objects never leave the backend.
+
 `WebSpeechBackend` is the default implementation and owns browser Web Speech objects plus `WebSpeechPlayer`. A future native Android or remote backend should replace the composition point rather than change Telegram/core/UI code. See ADR 0003.
 
 Remote TTS remains opt-in architecture work: transmitting Telegram message text off-device requires a separate privacy/security ADR and explicit user configuration.
+
+## Diagnostics
+
+Shareable diagnostics are constructed from an explicit whitelist. They include VoxThread version, browser family/major version, adapter counts/state, queue state, read-cursor counts, TTS API/capabilities/state, voice counts, safe preferences and page visibility.
+
+The diagnostic export must not contain message text, chat/message/author identifiers, Telegram URLs or arbitrary provider error strings. Known TTS error codes may be exported; unknown free-form errors collapse to `provider-error`.
 
 ## Runtime strategy
 
@@ -75,6 +90,8 @@ If the physical-device acceptance target proves browser Web Speech insufficient,
 
 - Do not store Telegram credentials, session data, cookies or exported private chat content in Git.
 - Test fixtures should be synthetic or explicitly sanitized before commit.
+- Persistent read cursors contain identifiers/position metadata only, never message text.
+- Shareable diagnostics are whitelist-built and must not expose Telegram identifiers or content.
 - Prefer local Android/browser TTS; any external TTS backend requires an explicit architecture decision because it receives message text.
 - Remote debugging endpoints should remain reachable only through the local ADB/control path.
 
@@ -82,7 +99,7 @@ If the physical-device acceptance target proves browser Web Speech insufficient,
 
 Core modules must run under Node without Telegram or a browser. Browser APIs (`speechSynthesis`, DOM observers, storage, MediaSession) are accessed through thin adapters/backends and can be replaced with fakes in tests.
 
-Captured DOM fixtures are treated as compatibility contracts. When Telegram Web changes, update the Telegram adapter and add a fixture reproducing the breakage.
+Captured DOM fixtures are treated as compatibility contracts. When Telegram Web changes, update the Telegram adapter and add a fixture reproducing the breakage. Read-cursor persistence additionally has a real Chrome/API 36 regression that navigates to a fresh document on the same origin and verifies no replay after completion.
 
 ## Change policy
 
