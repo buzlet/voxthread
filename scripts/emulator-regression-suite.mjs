@@ -7,6 +7,7 @@ const checks = [
   ['lifecycle', 'node', ['scripts/emulator-lifecycle-regression.mjs']],
   ['live-follow', 'node', ['scripts/emulator-live-follow-regression.mjs']],
   ['selection', 'node', ['scripts/emulator-selection-regression.mjs']],
+  ['read-cursor', 'node', ['scripts/emulator-read-cursor-regression.mjs']],
   ['tts-matrix', 'node', ['scripts/emulator-tts-matrix.mjs']],
 ];
 

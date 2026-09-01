@@ -13,6 +13,7 @@
     "test:emulator:lifecycle": "node scripts/emulator-lifecycle-regression.mjs",
     "test:emulator:live": "node scripts/emulator-live-follow-regression.mjs",
     "test:emulator:selection": "node scripts/emulator-selection-regression.mjs",
+    "test:emulator:cursor": "node scripts/emulator-read-cursor-regression.mjs",
     "test:emulator:matrix": "node scripts/emulator-tts-matrix.mjs",
     "test:emulator:all": "node scripts/emulator-regression-suite.mjs"
   },

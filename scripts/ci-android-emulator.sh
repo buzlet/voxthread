@@ -39,4 +39,5 @@ npm run test:emulator
 npm run test:emulator:lifecycle
 npm run test:emulator:live
 npm run test:emulator:selection
+npm run test:emulator:cursor
 npm run test:emulator:matrix
