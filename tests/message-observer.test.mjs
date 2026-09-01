@@ -132,6 +132,35 @@ test('observer-owned author context survives virtualized incremental boundary', 
   assert.equal(observer.authorContextSize, 1);
 });
 
+test('bounds dedup memory and suppresses virtualized re-entry within history window', () => {
+  const nodes = [];
+  const spoken = [];
+  const root = { querySelectorAll: () => nodes };
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    reconcileEvery: 100,
+    seenWindowSize: 2,
+    seenHistorySize: 3,
+    onMessages: messages => spoken.push(...messages.map(message => message.id)),
+  });
+
+  observer.start({ emitInitial: false });
+  for (let id = 1; id <= 5; id += 1) {
+    const node = bubble(String(id), `m${id}`);
+    FakeMutationObserver.latest.trigger(addition(node));
+  }
+
+  assert.deepEqual(spoken, ['1', '2', '3', '4', '5']);
+  assert.equal(observer.seenRecentCount, 2);
+  assert.equal(observer.seenHistoryCount, 3);
+  assert.equal(observer.seenCount, 5);
+
+  FakeMutationObserver.latest.trigger(addition(bubble('2', 'm2')));
+  assert.deepEqual(spoken, ['1', '2', '3', '4', '5']);
+  assert.equal(observer.seenCount, 5);
+});
+
 test('stop disconnects MutationObserver', () => {
   const root = { querySelectorAll: () => [] };
   const observer = new TelegramMessageObserver({

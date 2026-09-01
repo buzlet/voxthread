@@ -10,6 +10,55 @@ function keyOf(message) {
   return `${message.chatId}:${message.id}`;
 }
 
+class BoundedSeenMessages {
+  #recent = new Map();
+  #history = new Map();
+
+  constructor({ maxRecent = 4096, maxHistory = 32768 } = {}) {
+    this.maxRecent = Math.max(1, Number(maxRecent) || 4096);
+    this.maxHistory = Math.max(0, Number(maxHistory) || 0);
+  }
+
+  has(key) {
+    return this.#recent.has(key) || this.#history.has(key);
+  }
+
+  add(key) {
+    if (this.has(key)) return false;
+    this.#recent.set(key, true);
+
+    while (this.#recent.size > this.maxRecent) {
+      const oldest = this.#recent.keys().next().value;
+      this.#recent.delete(oldest);
+      if (this.maxHistory) this.#history.set(oldest, true);
+    }
+
+    while (this.#history.size > this.maxHistory) {
+      const oldest = this.#history.keys().next().value;
+      this.#history.delete(oldest);
+    }
+
+    return true;
+  }
+
+  clear() {
+    this.#recent.clear();
+    this.#history.clear();
+  }
+
+  get size() {
+    return this.#recent.size + this.#history.size;
+  }
+
+  get recentSize() {
+    return this.#recent.size;
+  }
+
+  get historySize() {
+    return this.#history.size;
+  }
+}
+
 function collectAddedBubbles(records) {
   const bubbles = [];
   const unique = new Set();
@@ -34,7 +83,7 @@ function collectAddedBubbles(records) {
 
 export class TelegramMessageObserver {
   #observer = null;
-  #seen = new Set();
+  #seen;
   #authorContext = new TelegramAuthorContext();
   #mutationBatches = 0;
 
@@ -43,6 +92,8 @@ export class TelegramMessageObserver {
     MutationObserverCtor = globalThis.MutationObserver,
     onMessages = null,
     reconcileEvery = 25,
+    seenWindowSize = 4096,
+    seenHistorySize = 32768,
   }) {
     if (!root?.querySelectorAll) {
       throw new TypeError('TelegramMessageObserver.root must support querySelectorAll');
@@ -52,6 +103,10 @@ export class TelegramMessageObserver {
     this.MutationObserverCtor = MutationObserverCtor;
     this.onMessages = typeof onMessages === 'function' ? onMessages : null;
     this.reconcileEvery = Math.max(1, Number(reconcileEvery) || 25);
+    this.#seen = new BoundedSeenMessages({
+      maxRecent: seenWindowSize,
+      maxHistory: seenHistorySize,
+    });
   }
 
   #accept(messages, { emit = true } = {}) {
@@ -59,8 +114,7 @@ export class TelegramMessageObserver {
 
     for (const message of messages) {
       const key = keyOf(message);
-      if (this.#seen.has(key)) continue;
-      this.#seen.add(key);
+      if (!this.#seen.add(key)) continue;
       fresh.push(message);
     }
 
@@ -126,6 +180,14 @@ export class TelegramMessageObserver {
 
   get seenCount() {
     return this.#seen.size;
+  }
+
+  get seenRecentCount() {
+    return this.#seen.recentSize;
+  }
+
+  get seenHistoryCount() {
+    return this.#seen.historySize;
   }
 
   get authorContextSize() {
