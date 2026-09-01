@@ -77,24 +77,17 @@ export function inferLanguageHint(text, {
 } = {}) {
   const preferred = normalizedLanguage(preferredLanguage);
   const counts = scriptCounts(text);
-  let cyrillic = counts.cyrillic;
+  const cyrillic = counts.cyrillic;
   let latin = counts.latin;
 
-  // One short foreign-script token is usually a brand/acronym, not a language
-  // switch ("Привет OpenAI", "release Телеграм").
+  // A single short Latin token inside Cyrillic prose is usually a brand or
+  // acronym, not a reason to switch the whole utterance to an English voice.
   if (
     counts.cyrillicTokens >= 1
     && counts.latinTokens === 1
     && latin <= Math.max(8, Math.floor(cyrillic * 0.6))
   ) {
     latin = 0;
-  }
-  if (
-    counts.latinTokens >= 1
-    && counts.cyrillicTokens === 1
-    && cyrillic <= Math.max(6, Math.floor(latin * 0.45))
-  ) {
-    cyrillic = 0;
   }
 
   const total = cyrillic + latin;
