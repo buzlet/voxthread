@@ -16,6 +16,35 @@ function getAuthorElement(bubble) {
     || null;
 }
 
+export class TelegramAuthorContext {
+  #lastInboundAuthor = new Map();
+
+  get(chatId) {
+    return this.#lastInboundAuthor.get(String(chatId)) ?? null;
+  }
+
+  set(chatId, { authorId = null, authorName = null } = {}) {
+    const key = String(chatId);
+    if (!authorId && !authorName) {
+      this.#lastInboundAuthor.delete(key);
+      return;
+    }
+    this.#lastInboundAuthor.set(key, { authorId, authorName });
+  }
+
+  clear(chatId) {
+    this.#lastInboundAuthor.delete(String(chatId));
+  }
+
+  reset() {
+    this.#lastInboundAuthor.clear();
+  }
+
+  get size() {
+    return this.#lastInboundAuthor.size;
+  }
+}
+
 export function extractTelegramBubble(bubble) {
   if (!bubble?.dataset?.mid || !bubble?.dataset?.peerId) return null;
 
@@ -44,9 +73,11 @@ function withAuthor(message, authorId, authorName) {
   });
 }
 
-export function extractTelegramBubbles(bubbles) {
+export function extractTelegramBubbles(
+  bubbles,
+  { authorContext = new TelegramAuthorContext() } = {},
+) {
   const result = [];
-  const lastInboundAuthor = new Map();
 
   for (const bubble of bubbles) {
     let message = extractTelegramBubble(bubble);
@@ -55,13 +86,13 @@ export function extractTelegramBubbles(bubbles) {
     const chatId = message.chatId;
 
     if (message.type === 'service' || message.outgoing) {
-      lastInboundAuthor.delete(chatId);
+      authorContext.clear(chatId);
       result.push(message);
       continue;
     }
 
     if (message.authorId || message.authorName) {
-      lastInboundAuthor.set(chatId, {
+      authorContext.set(chatId, {
         authorId: message.authorId,
         authorName: message.authorName,
       });
@@ -70,7 +101,7 @@ export function extractTelegramBubbles(bubbles) {
     }
 
     if (hasClass(bubble, 'hide-name')) {
-      const previous = lastInboundAuthor.get(chatId);
+      const previous = authorContext.get(chatId);
       if (previous) {
         message = withAuthor(
           message,
@@ -85,7 +116,7 @@ export function extractTelegramBubbles(bubbles) {
     }
 
     if (message.authorId || message.authorName) {
-      lastInboundAuthor.set(chatId, {
+      authorContext.set(chatId, {
         authorId: message.authorId,
         authorName: message.authorName,
       });
