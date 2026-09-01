@@ -32,6 +32,36 @@ function entityType(element) {
   return null;
 }
 
+function countOccurrences(value, search) {
+  if (!search) return 0;
+  const haystack = String(value ?? '');
+  let count = 0;
+  let from = 0;
+
+  while (from <= haystack.length - search.length) {
+    const index = haystack.indexOf(search, from);
+    if (index < 0) break;
+    count += 1;
+    from = index + search.length;
+  }
+
+  return count;
+}
+
+function entityOccurrence(textElement, element, text) {
+  const document = textElement?.ownerDocument;
+  if (!document?.createRange || !element?.parentNode) return null;
+
+  try {
+    const range = document.createRange();
+    range.setStart(textElement, 0);
+    range.setEndBefore(element);
+    return countOccurrences(range.toString(), text);
+  } catch {
+    return null;
+  }
+}
+
 function extractTelegramEntities(textElement) {
   const elements = textElement?.querySelectorAll?.(
     'a[href],code,pre,.spoiler,blockquote,.quote'
@@ -51,6 +81,7 @@ function extractTelegramEntities(textElement) {
         ? (element.getAttribute?.('href') ?? element.href ?? null)
         : null,
       language: element.dataset?.language ?? null,
+      occurrence: entityOccurrence(textElement, element, text),
     });
   }
 
