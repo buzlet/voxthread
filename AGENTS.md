@@ -3,22 +3,36 @@
 
 This repository is a userscript-first project for reading web chat conversations aloud with human-friendly TTS and distinguishable per-author voices.
 
+## HARD REQUIREMENT: network-isolated ChatGPT sandbox
+
+If direct GitHub/npm network access or a real Git clone is unavailable, **before doing anything else read [`docs/SANDBOX_TRANSACTION_PROTOCOL.md`](docs/SANDBOX_TRANSACTION_PROTOCOL.md)**.
+
+That protocol is mandatory and is the source of truth for sandbox synchronization. Use only the exact-HEAD `sandbox-bundle-<SHA>` + `sandboxctl.py` transaction workflow. Do not invent, revive, or use another synchronization path. If the mandated mechanism fails, fix it or stop the transaction; do not bypass it.
+
+In particular, never:
+
+- work from an older bundle when the current branch HEAD has no bundle yet;
+- combine separate source/dependency artifacts;
+- rely on Git hooks inside the sandbox;
+- continue editing a workspace after `mark-pushed` made it `stale`;
+- push when remote HEAD differs from `.sandbox/push.json:base_sha`;
+- continue feature work after a dependency change until a bundle for the dependency commit has been obtained.
+
 ## Current handoff
 
-For autonomous GitHub-only continuation while the development server is
-offline, read [`docs/GITHUB_AGENT_HANDOFF.md`](docs/GITHUB_AGENT_HANDOFF.md)
-before starting work.
+For autonomous GitHub-only continuation while the development server is offline, read [`docs/GITHUB_AGENT_HANDOFF.md`](docs/GITHUB_AGENT_HANDOFF.md) before starting work.
 
 ## Read before changing code
 
 Read these files first:
 
-1. `docs/architecture.md` — current system boundaries and module design.
-2. `docs/development.md` — mandatory development workflow.
-3. `docs/backlog.md` — tracked work and permanent `TWR-xxx` IDs.
-4. Relevant ADRs under `docs/decisions/`.
+1. `docs/SANDBOX_TRANSACTION_PROTOCOL.md` — mandatory when running in the network-isolated sandbox.
+2. `docs/architecture.md` — current system boundaries and module design.
+3. `docs/development.md` — mandatory development workflow.
+4. `docs/backlog.md` — tracked work and permanent `TWR-xxx` IDs.
+5. Relevant ADRs under `docs/decisions/`.
 
-Architecture and ADRs are the source of truth. If implementation needs to contradict them, update or supersede the decision explicitly.
+Architecture and ADRs are the source of truth for product design. The sandbox protocol is the source of truth for sandbox synchronization/execution. If implementation needs to contradict an architecture decision, update or supersede the decision explicitly.
 
 ## Repository rules
 
@@ -31,7 +45,7 @@ Architecture and ADRs are the source of truth. If implementation needs to contra
 
 ## Commit-before-run
 
-Any executable experiment on `u24`, Android, a browser or CI must be committed before it is run there. The network-isolated sandbox is the exception: local Node unit/build checks are the mandatory pre-push gate and therefore run before the connector commit.
+Any executable experiment on `u24`, Android, a browser or CI must be committed before it is run there. The network-isolated sandbox is the exception: local Node unit/build checks are the mandatory pre-push gate and therefore run before the connector commit, strictly through `sandboxctl.py`.
 
 For tracked work, prefix commit messages with the backlog ID, for example `TWR-003: add TTS diagnostics`. Do not rewrite a commit after its behaviour has been observed; fix it in a new commit.
 
@@ -55,16 +69,10 @@ Add deferred work to `docs/backlog.md` with the next permanent `TWR-xxx` ID. Do 
 
 On `u24`, project operations are performed as the dedicated `gpt` user with `HOME=/home/gpt`. Do not assume local-only paths or host details belong in portable application code. Do not push, publish releases or rewrite shared history unless explicitly requested.
 
-## Network-isolated sandbox transaction protocol
+## Sandbox transaction summary
 
-When direct Git access is unavailable, do not use ad-hoc source snapshots, separate dependency artifacts, or `tools/github_sparse_sync.py`. Treat each coding task as one transaction and use only the single `Sandbox bundle` artifact for the exact branch HEAD.
+This summary does not replace `docs/SANDBOX_TRANSACTION_PROTOCOL.md`.
 
-1. START: read the remote branch HEAD through the GitHub connector. Obtain `sandbox-bundle-<HEAD>` from the successful `Sandbox bundle` workflow for exactly that SHA. Never substitute an older artifact.
-2. PULL: extract `sandboxctl.py` from the artifact and run `python sandboxctl.py pull <artifact.zip> <workdir>`. This replaces a clean/stale workspace and refuses to overwrite uncommitted work.
-3. WORK: edit only while session phase is `active`. Use `python sandboxctl.py status <workdir>` as the only local change inventory.
-4. PUSH GATE: run `python sandboxctl.py prepare-push <workdir>`. It performs offline `npm ci`, tests, both builds, userscript verification, writes `.sandbox/push.json`, and changes phase to `push-ready`.
-5. REMOTE GATE: immediately re-read remote branch HEAD. It MUST equal `.sandbox/push.json:base_sha`. If not, do not push; run `abort-push`, preserve/port the changes, and restart from START.
-6. COMMIT: create blobs/tree/commit through the GitHub connector using `base_tree` and `base_sha`, then update the branch ref with `force=false`. Do not use per-file sequential commits for a multi-file change.
-7. CLOSE: run `python sandboxctl.py mark-pushed <workdir> <new-sha>`. The workspace becomes `stale` and MUST NOT be edited again. Any further work starts again at START from `sandbox-bundle-<new-sha>`.
+`START exact HEAD → exact-SHA bundle → sandboxctl pull → WORK(active) → sandboxctl prepare-push → re-read remote HEAD → atomic connector commit with force=false → sandboxctl mark-pushed → STALE`.
 
-A transaction must not be left with unpushed local changes between agent turns. If work is incomplete but valid, make a tested checkpoint commit on the feature branch and close the transaction.
+Do not leave unpushed sandbox changes between agent turns. If work is incomplete but valid, create a tested checkpoint commit and start the next turn from its new exact-SHA bundle.

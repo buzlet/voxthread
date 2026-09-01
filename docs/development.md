@@ -1,11 +1,19 @@
 <!-- docs/development.md -->
 # Development workflow
 
+## Mandatory sandbox rule
+
+When running in a network-isolated ChatGPT sandbox without direct GitHub/npm access and without a real Git clone, **do not use the ordinary clone/worktree workflow below**. Read and follow [`SANDBOX_TRANSACTION_PROTOCOL.md`](SANDBOX_TRANSACTION_PROTOCOL.md) exactly.
+
+The sandbox workflow has one valid synchronization path only: exact remote HEAD → successful `sandbox-bundle-<HEAD>` → `sandboxctl.py` transaction → remote HEAD recheck → atomic GitHub connector commit → stale workspace. No older bundle, ad-hoc sync, Git-hook-based enforcement, manual artifact mixing, or continued work after push is permitted.
+
+Dependency/environment changes are transaction boundaries. A change to `package.json`, `package-lock.json`, Node baseline or another build/runtime dependency must be committed separately, validated by GitHub, and followed by a fresh sandbox transaction from the bundle for that dependency commit before feature work continues.
+
 ## Commit-before-run rule
 
 Any executable change, including diagnostics and one-off experiments, must be committed before execution on Android, a browser, CI or an optional development host.
 
-Recommended sequence:
+For a real Git clone/worktree, the recommended sequence is:
 
 1. Edit source/test/documentation files in a branch/worktree.
 2. Review the diff and repository status.
@@ -13,6 +21,8 @@ Recommended sequence:
 4. Push the branch and let GitHub Actions run it.
 5. Record non-obvious observations in `docs/notes/` with the tested commit SHA.
 6. Fix failures in a new commit; do not rewrite an observed commit.
+
+The network-isolated sandbox is different: its mandatory local test/build gate runs before the connector commit, strictly through `sandboxctl.py prepare-push` as defined in the sandbox protocol.
 
 This makes every reported behaviour attributable to an exact Git revision.
 
@@ -23,11 +33,16 @@ GitHub is the authoritative and reproducible development/test environment. Do no
 - Work in a branch based on current `main`.
 - Push complete commits to GitHub.
 - `CI` runs Node tests and reproducible userscript builds.
+- `Sandbox bundle` creates the single exact-commit bootstrap artifact used by the network-isolated sandbox.
 - `Android emulator regression` runs the API 36 Chrome release gate.
 - `Firefox Android comparison` is an investigation workflow used when browser choice may change the runtime decision.
 - Keep Android diagnostics as workflow artifacts; never put Telegram credentials or private messages in them.
 
 A local machine or `u24` may still be used as a convenience when available, but it is not required for ordinary development or CI acceptance.
+
+## Sandbox bundle retention
+
+`Sandbox bundle` artifacts request 90-day retention, but the workflow keeps only the three newest sandbox bundles for each branch and deletes older ones. This bounds Actions storage while retaining recent recovery points. The current exact-HEAD bundle is always required for new sandbox work; retained older bundles are not valid substitutes.
 
 ## Commit messages
 
