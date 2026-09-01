@@ -93,6 +93,22 @@ test('does not rewrite the segment currently being spoken', () => {
   assert.equal(q.current.text, 'two three');
 });
 
+test('does not reopen a completed queue when its final segment changes', () => {
+  const q = new PlaybackQueue();
+  q.load(segments);
+  q.play();
+  q.advance();
+  q.advance();
+  q.advance();
+
+  assert.equal(q.status, 'completed');
+  assert.equal(q.current.text, 'four');
+  assert.equal(q.replacePendingForMessage('4', []), false);
+  assert.equal(q.status, 'completed');
+  assert.equal(q.length, 3);
+  assert.equal(q.current.text, 'four');
+});
+
 test('emits immutable snapshots', () => {
   const seen = [];
   const q = new PlaybackQueue(snapshot => seen.push(snapshot));
