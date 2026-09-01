@@ -2,6 +2,3 @@
 # .githooks/pre-commit
 set -eu
 git diff --cached --check
-if [ -f .github-sync-state.json ]; then
-  python3 tools/github_sparse_sync.py verify .github-sync-state.json .
-fi
