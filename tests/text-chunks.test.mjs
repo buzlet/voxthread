@@ -1,12 +1,62 @@
 // tests/text-chunks.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { splitSpeechText } from '../src/tts/text-chunks.mjs';
+import {
+  segmentSpeechSentences,
+  splitSpeechText,
+} from '../src/tts/text-chunks.mjs';
+
+class DeliberatelyBadSegmenter {
+  constructor() {}
+  segment() {
+    return [
+      { segment: 'т.' },
+      { segment: 'е. мы идем. ' },
+      { segment: 'Следующее предложение.' },
+    ];
+  }
+}
+
+class DomainBreakingSegmenter {
+  constructor() {}
+  segment() {
+    return [
+      { segment: 'Смотри example.' },
+      { segment: 'com/path дальше.' },
+    ];
+  }
+}
 
 test('keeps short speech in one chunk', () => {
   assert.deepEqual(
     splitSpeechText('Короткое сообщение.'),
     ['Короткое сообщение.'],
+  );
+});
+
+test('uses Segmenter baseline but repairs Telegram-style abbreviation boundaries', () => {
+  assert.deepEqual(
+    segmentSpeechSentences('ignored fixture text', {
+      SegmenterCtor: DeliberatelyBadSegmenter,
+      locale: 'ru',
+    }),
+    ['т. е. мы идем.', 'Следующее предложение.'],
+  );
+});
+
+test('repairs false domain boundary after segmentation', () => {
+  assert.deepEqual(
+    segmentSpeechSentences('ignored fixture text', {
+      SegmenterCtor: DomainBreakingSegmenter,
+    }),
+    ['Смотри example. com/path дальше.'],
+  );
+});
+
+test('has deterministic fallback when Intl.Segmenter is unavailable', () => {
+  assert.deepEqual(
+    segmentSpeechSentences('Первое. Второе! ثالث؟ 終わり。', { SegmenterCtor: null }),
+    ['Первое.', 'Второе!', 'ثالث؟', '終わり。'],
   );
 });
 

@@ -14,7 +14,9 @@
     "test:emulator:live": "node scripts/emulator-live-follow-regression.mjs",
     "test:emulator:selection": "node scripts/emulator-selection-regression.mjs",
     "test:emulator:cursor": "node scripts/emulator-read-cursor-regression.mjs",
+    "test:emulator:cache": "node scripts/emulator-message-cache-regression.mjs",
     "test:emulator:matrix": "node scripts/emulator-tts-matrix.mjs",
+    "test:emulator:media-anchor": "node scripts/emulator-media-anchor-experiment.mjs",
     "test:emulator:all": "node scripts/emulator-regression-suite.mjs"
   },
   "devDependencies": {

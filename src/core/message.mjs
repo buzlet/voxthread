@@ -19,6 +19,30 @@ function numberOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function nonNegativeIntegerOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+function normalizeEntities(value) {
+  if (!Array.isArray(value)) return Object.freeze([]);
+  return Object.freeze(value
+    .map(entity => {
+      const type = stringOrNull(entity?.type);
+      const text = cleanText(entity?.text);
+      if (!type || !text) return null;
+      return Object.freeze({
+        type,
+        text,
+        href: stringOrNull(entity.href),
+        language: stringOrNull(entity.language),
+        occurrence: nonNegativeIntegerOrNull(entity.occurrence),
+      });
+    })
+    .filter(Boolean));
+}
+
 export function normalizeMessage(input) {
   const id = stringOrNull(input?.id);
   const chatId = stringOrNull(input?.chatId);
@@ -35,6 +59,7 @@ export function normalizeMessage(input) {
     type: stringOrNull(input.type) || 'unknown',
     replyToId: stringOrNull(input.replyToId),
     media: input.media ?? null,
+    entities: normalizeEntities(input.entities),
     timestamp: numberOrNull(input.timestamp),
     outgoing: Boolean(input.outgoing),
     source: input.source ?? null,

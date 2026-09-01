@@ -2,8 +2,8 @@
 import { WebSpeechPlayer } from './web-speech-player.mjs';
 import {
   createVoiceResolver,
-  inferLanguageHint,
   prosodyForAuthor,
+  resolveLanguageHint,
 } from './voice-map.mjs';
 import {
   normalizeTtsCapabilities,
@@ -24,18 +24,12 @@ function normalizeVoice(voice) {
   });
 }
 
-/**
- * TTS backend API v2 implementation for browser Web Speech.
- *
- * Provider-native voice/utterance objects never leave this class. Runtime/core
- * code talks only to normalized voice descriptors, normalized capabilities and
- * the provider-neutral player surface.
- */
 export class WebSpeechBackend {
   constructor({
     speechSynthesis,
     Utterance,
     voiceOverrides = {},
+    languagePreferences = {},
     maxUtteranceChars = 480,
   }) {
     if (!speechSynthesis || typeof speechSynthesis.speak !== 'function') {
@@ -48,6 +42,7 @@ export class WebSpeechBackend {
     this.speechSynthesis = speechSynthesis;
     this.Utterance = Utterance;
     this.voiceOverrides = voiceOverrides;
+    this.languagePreferences = languagePreferences;
     this.maxUtteranceChars = maxUtteranceChars;
     this.apiVersion = TTS_BACKEND_API_VERSION;
   }
@@ -75,7 +70,10 @@ export class WebSpeechBackend {
     const voiceResolver = createVoiceResolver({
       getVoices: () => this.#rawVoices(),
       overrides: this.voiceOverrides,
-      languageForSegment: segment => inferLanguageHint(segment.text),
+      languageForSegment: segment => resolveLanguageHint(
+        segment,
+        this.languagePreferences,
+      ),
     });
 
     return new WebSpeechPlayer({
@@ -92,7 +90,10 @@ export class WebSpeechBackend {
     const voices = this.#rawVoices();
     if (!segment) return voices.map(normalizeVoice);
 
-    const language = primaryLanguage(inferLanguageHint(segment?.text));
+    const language = primaryLanguage(resolveLanguageHint(
+      segment,
+      this.languagePreferences,
+    ));
     const compatible = language
       ? voices.filter(voice => primaryLanguage(voice.lang) === language)
       : voices;

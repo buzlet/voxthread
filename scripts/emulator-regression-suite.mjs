@@ -8,7 +8,9 @@ const checks = [
   ['live-follow', 'node', ['scripts/emulator-live-follow-regression.mjs']],
   ['selection', 'node', ['scripts/emulator-selection-regression.mjs']],
   ['read-cursor', 'node', ['scripts/emulator-read-cursor-regression.mjs']],
+  ['message-cache', 'node', ['scripts/emulator-message-cache-regression.mjs']],
   ['tts-matrix', 'node', ['scripts/emulator-tts-matrix.mjs']],
+  ['media-anchor', 'node', ['scripts/emulator-media-anchor-experiment.mjs']],
 ];
 
 const results = [];

@@ -11,13 +11,23 @@ function classList(...names) {
   return { contains: name => values.has(name) };
 }
 
-function bubble(mid, text) {
+function bubble(mid, text, { chatId = '10', authorId = null, authorName = null } = {}) {
+  const author = authorId || authorName
+    ? { dataset: { peerId: authorId }, innerText: authorName }
+    : null;
   return {
-    dataset: { mid, peerId: '10' },
-    classList: classList('bubble', 'is-in', 'hide-name'),
+    dataset: { mid, peerId: chatId },
+    classList: classList('bubble', 'is-in', author ? '' : 'hide-name'),
+    matches(selector) {
+      return selector === '.bubble[data-mid]';
+    },
     querySelector(selector) {
       if (selector === '.translatable-message') return { innerText: text };
+      if (selector === '.peer-title[data-peer-id]') return author;
       return null;
+    },
+    querySelectorAll() {
+      return [];
     },
   };
 }
@@ -40,16 +50,22 @@ class FakeMutationObserver {
     this.disconnected = true;
   }
 
-  trigger() {
-    this.callback([]);
+  trigger(records = []) {
+    this.callback(records);
   }
 }
 
-test('discovers initial messages and deduplicates later scans', () => {
+function addition(...nodes) {
+  return [{ addedNodes: nodes }];
+}
+
+test('discovers initial messages and processes addedNodes without full rescan', () => {
   const nodes = [bubble('1', 'one'), bubble('2', 'two')];
   const batches = [];
+  let queryCount = 0;
   const root = {
     querySelectorAll() {
+      queryCount += 1;
       return nodes;
     },
   };
@@ -62,13 +78,87 @@ test('discovers initial messages and deduplicates later scans', () => {
 
   const initial = observer.start();
   assert.deepEqual(initial.map(x => x.id), ['1', '2']);
-  assert.equal(observer.seenCount, 2);
+  assert.equal(queryCount, 1);
 
-  nodes.push(bubble('3', 'three'));
-  FakeMutationObserver.latest.trigger();
+  const third = bubble('3', 'three');
+  nodes.push(third);
+  FakeMutationObserver.latest.trigger(addition(third));
 
   assert.deepEqual(batches, [['1', '2'], ['3']]);
+  assert.equal(queryCount, 1);
   assert.equal(observer.seenCount, 3);
+});
+
+test('periodic reconciliation recovers bubbles missing from mutation records', () => {
+  const nodes = [bubble('10', 'ten')];
+  const batches = [];
+  const root = { querySelectorAll: () => nodes };
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    reconcileEvery: 2,
+    onMessages: messages => batches.push(messages.map(x => x.id)),
+  });
+
+  observer.start({ emitInitial: false });
+  nodes.push(bubble('11', 'eleven'));
+  FakeMutationObserver.latest.trigger([]);
+  assert.deepEqual(batches, []);
+
+  FakeMutationObserver.latest.trigger([]);
+  assert.deepEqual(batches, [['11']]);
+});
+
+test('observer-owned author context survives virtualized incremental boundary', () => {
+  const first = bubble('20', 'first', { authorId: '77', authorName: 'Автор', chatId: '-2' });
+  const nodes = [first];
+  const batches = [];
+  const root = { querySelectorAll: () => nodes };
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    onMessages: messages => batches.push(messages),
+  });
+
+  observer.start({ emitInitial: false });
+  nodes.splice(0, nodes.length);
+  const continuation = bubble('21', 'continued', { chatId: '-2' });
+  nodes.push(continuation);
+  FakeMutationObserver.latest.trigger(addition(continuation));
+
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0][0].authorId, '77');
+  assert.equal(batches[0][0].authorName, 'Автор');
+  assert.equal(observer.authorContextSize, 1);
+});
+
+test('bounds dedup memory and suppresses virtualized re-entry within history window', () => {
+  const nodes = [];
+  const spoken = [];
+  const root = { querySelectorAll: () => nodes };
+  const observer = new TelegramMessageObserver({
+    root,
+    MutationObserverCtor: FakeMutationObserver,
+    reconcileEvery: 100,
+    seenWindowSize: 2,
+    seenHistorySize: 3,
+    onMessages: messages => spoken.push(...messages.map(message => message.id)),
+  });
+
+  observer.start({ emitInitial: false });
+  for (let id = 1; id <= 5; id += 1) {
+    const node = bubble(String(id), `m${id}`);
+    FakeMutationObserver.latest.trigger(addition(node));
+  }
+
+  assert.deepEqual(spoken, ['1', '2', '3', '4', '5']);
+  assert.equal(observer.seenRecentCount, 2);
+  assert.equal(observer.seenHistoryCount, 3);
+  assert.equal(observer.seenCount, 5);
+
+  FakeMutationObserver.latest.trigger(addition(bubble('2', 'm2')));
+  assert.deepEqual(spoken, ['1', '2', '3', '4', '5']);
+  assert.equal(observer.seenCount, 5);
 });
 
 test('stop disconnects MutationObserver', () => {
@@ -107,7 +197,7 @@ test('scrollTowardOlder moves upward by viewport fraction', () => {
 });
 
 test('can prime current DOM without emitting initial messages', () => {
-  const nodes = [bubble('10', 'ten')];
+  const nodes = [bubble('30', 'thirty')];
   const batches = [];
   const root = { querySelectorAll: () => nodes };
 
@@ -122,10 +212,11 @@ test('can prime current DOM without emitting initial messages', () => {
   assert.deepEqual(batches, []);
   assert.equal(observer.seenCount, 1);
 
-  nodes.push(bubble('11', 'eleven'));
-  FakeMutationObserver.latest.trigger();
+  const next = bubble('31', 'thirty-one');
+  nodes.push(next);
+  FakeMutationObserver.latest.trigger(addition(next));
 
-  assert.deepEqual(batches, [['11']]);
+  assert.deepEqual(batches, [['31']]);
 });
 
 test('finds Telegram Web K bubbles scroll container', async () => {

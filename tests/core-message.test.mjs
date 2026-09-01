@@ -34,6 +34,22 @@ test('allows missing author for grouped Telegram bubbles', () => {
   assert.equal(message.authorName, null);
 });
 
+test('keeps missing entity occurrence null and explicit zero intact', () => {
+  const message = normalizeMessage({
+    id: '3',
+    chatId: '4',
+    text: 'code code',
+    type: 'text',
+    entities: [
+      { type: 'code', text: 'code', occurrence: null },
+      { type: 'code', text: 'code', occurrence: 0 },
+    ],
+  });
+
+  assert.equal(message.entities[0].occurrence, null);
+  assert.equal(message.entities[1].occurrence, 0);
+});
+
 test('requires stable message and chat identifiers', () => {
   assert.throws(() => normalizeMessage({ chatId: '2' }), /id is required/);
   assert.throws(() => normalizeMessage({ id: '1' }), /chatId is required/);
