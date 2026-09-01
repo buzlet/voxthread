@@ -34,11 +34,6 @@ export function simplifyLinks(text, mode = 'domain') {
     .trim();
 }
 
-function replaceLiteral(text, search, replacement) {
-  if (!search || !text.includes(search)) return text;
-  return text.split(search).join(replacement);
-}
-
 function entitySpeech(entity, options) {
   const text = String(entity.text ?? '').trim();
   if (!text) return '';
@@ -66,6 +61,67 @@ function entitySpeech(entity, options) {
   }
 }
 
+function nthIndexOf(value, search, occurrence = 0) {
+  if (!search) return -1;
+  const target = Math.max(0, Number.isInteger(occurrence) ? occurrence : 0);
+  let from = 0;
+  let found = -1;
+
+  for (let current = 0; current <= target; current += 1) {
+    found = value.indexOf(search, from);
+    if (found < 0) return -1;
+    from = found + search.length;
+  }
+
+  return found;
+}
+
+function overlaps(left, right) {
+  return left.start < right.end && right.start < left.end;
+}
+
+function applyStructuredEntities(value, entities, policy) {
+  const candidates = [];
+
+  for (const entity of entities ?? []) {
+    const text = String(entity?.text ?? '').trim();
+    if (!text) continue;
+    const start = nthIndexOf(value, text, entity.occurrence ?? 0);
+    if (start < 0) continue;
+    const replacement = entitySpeech(entity, policy);
+    if (replacement === text) continue;
+
+    candidates.push({
+      start,
+      end: start + text.length,
+      replacement,
+    });
+  }
+
+  // For overlapping/nested Telegram entities, the wider policy wins. This is
+  // important for cases such as a skipped spoiler containing a link: the
+  // spoiler must suppress the whole span instead of letting the inner link
+  // policy leak content back into speech.
+  candidates.sort((a, b) =>
+    (b.end - b.start) - (a.end - a.start)
+    || a.start - b.start
+  );
+
+  const selected = [];
+  for (const candidate of candidates) {
+    if (!selected.some(item => overlaps(item, candidate))) {
+      selected.push(candidate);
+    }
+  }
+
+  selected.sort((a, b) => b.start - a.start);
+  let result = value;
+  for (const span of selected) {
+    result = `${result.slice(0, span.start)}${span.replacement}${result.slice(span.end)}`;
+  }
+  return result;
+}
+
 export function normalizeTelegramTextForSpeech(text, options = {}) {
   const policy = {
     linkMode: 'domain',
@@ -79,14 +135,7 @@ export function normalizeTelegramTextForSpeech(text, options = {}) {
   };
 
   let value = String(text ?? '').replace(/\r\n?/g, '\n').trim();
-
-  const entities = [...(policy.entities ?? [])]
-    .filter(entity => entity?.text)
-    .sort((a, b) => String(b.text).length - String(a.text).length);
-
-  for (const entity of entities) {
-    value = replaceLiteral(value, entity.text, entitySpeech(entity, policy));
-  }
+  value = applyStructuredEntities(value, policy.entities, policy);
 
   value = simplifyLinks(value, policy.linkMode);
   if (policy.mentionMode !== 'verbatim') {
