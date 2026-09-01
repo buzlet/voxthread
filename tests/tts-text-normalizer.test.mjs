@@ -39,6 +39,16 @@ test('supports deterministic entity policies without leaking markup semantics', 
   );
 });
 
+test('applies structured policy only to the exact entity occurrence', () => {
+  assert.equal(
+    normalizeTelegramTextForSpeech('ls обычный текст, потом ls', {
+      entities: [{ type: 'code', text: 'ls', occurrence: 1 }],
+      codeMode: 'skip',
+    }),
+    'ls обычный текст, потом',
+  );
+});
+
 test('handles Telegram short links and trailing sentence punctuation', () => {
   assert.equal(
     simplifyLinks('join t.me/example, then https://www.example.org/a.', 'domain'),
