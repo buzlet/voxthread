@@ -40,6 +40,7 @@ function messageFingerprint(message) {
     message.type,
     message.replyToId,
     message.media,
+    message.entities,
     message.timestamp,
     message.outgoing,
   ]);

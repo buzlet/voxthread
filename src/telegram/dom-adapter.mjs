@@ -16,6 +16,47 @@ function getAuthorElement(bubble) {
     || null;
 }
 
+function entityType(element) {
+  const tag = String(element?.tagName ?? '').toLowerCase();
+  const text = String(element?.innerText ?? element?.textContent ?? '').trim();
+
+  if (tag === 'a') {
+    if (text.startsWith('@')) return 'mention';
+    if (text.startsWith('#')) return 'hashtag';
+    return 'link';
+  }
+  if (tag === 'pre') return 'pre';
+  if (tag === 'code') return 'code';
+  if (tag === 'blockquote' || hasClass(element, 'quote')) return 'quote';
+  if (hasClass(element, 'spoiler')) return 'spoiler';
+  return null;
+}
+
+function extractTelegramEntities(textElement) {
+  const elements = textElement?.querySelectorAll?.(
+    'a[href],code,pre,.spoiler,blockquote,.quote'
+  ) ?? [];
+  const result = [];
+
+  for (const element of elements) {
+    const type = entityType(element);
+    const text = String(element?.innerText ?? element?.textContent ?? '').trim();
+    if (!type || !text) continue;
+    if (type === 'code' && element.closest?.('pre')) continue;
+
+    result.push({
+      type,
+      text,
+      href: type === 'link'
+        ? (element.getAttribute?.('href') ?? element.href ?? null)
+        : null,
+      language: element.dataset?.language ?? null,
+    });
+  }
+
+  return result;
+}
+
 export class TelegramAuthorContext {
   #lastInboundAuthor = new Map();
 
@@ -59,6 +100,7 @@ export function extractTelegramBubble(bubble) {
     authorName: authorElement?.innerText ?? authorElement?.textContent ?? null,
     text,
     type: hasClass(bubble, 'service') ? 'service' : (text.trim() ? 'text' : 'unknown'),
+    entities: extractTelegramEntities(textElement),
     timestamp: bubble.dataset.timestamp,
     outgoing: hasClass(bubble, 'is-out'),
     source: bubble,

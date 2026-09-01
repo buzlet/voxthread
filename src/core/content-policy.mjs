@@ -1,21 +1,10 @@
 // src/core/content-policy.mjs
+import {
+  normalizeTelegramTextForSpeech,
+  simplifyLinks,
+} from './tts-text-normalizer.mjs';
 
-const URL_RE = /\bhttps?:\/\/[^\s<>()]+/giu;
-
-function domainFromUrl(value) {
-  try {
-    return new URL(value).hostname.replace(/^www\./i, '');
-  } catch {
-    return value;
-  }
-}
-
-export function simplifyLinks(text, mode = 'domain') {
-  if (mode === 'verbatim') return text;
-  if (mode === 'skip') return text.replace(URL_RE, '').replace(/\s{2,}/g, ' ').trim();
-
-  return text.replace(URL_RE, url => domainFromUrl(url));
-}
+export { simplifyLinks };
 
 export function isEmojiOnly(text) {
   const value = String(text ?? '').trim();
@@ -30,12 +19,25 @@ export function prepareMessageForSpeech(message, options = {}) {
     skipEmojiOnly = true,
     announceMedia = false,
     mediaLabels = {},
+    mentionMode = 'plain',
+    hashtagMode = 'plain',
+    codeMode = 'verbatim',
+    spoilerMode = 'verbatim',
+    quoteMode = 'verbatim',
   } = options;
 
   if (!message) return null;
   if (message.type === 'service') return null;
 
-  let text = simplifyLinks(String(message.text ?? '').trim(), linkMode);
+  let text = normalizeTelegramTextForSpeech(message.text, {
+    entities: message.entities,
+    linkMode,
+    mentionMode,
+    hashtagMode,
+    codeMode,
+    spoilerMode,
+    quoteMode,
+  });
 
   if (skipEmojiOnly && isEmojiOnly(text)) return null;
 
