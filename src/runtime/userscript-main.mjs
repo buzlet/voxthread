@@ -5,6 +5,7 @@ import {
   scrollTowardNewer,
   TelegramMessageObserver,
 } from '../telegram/message-observer.mjs';
+import { createPrivacySafeDiagnostics } from '../core/diagnostics.mjs';
 import { planSpeech } from '../core/speech-planner.mjs';
 import { PlaybackQueue } from '../core/playback-queue.mjs';
 import {
@@ -40,6 +41,9 @@ let liveFollow = false;
 let prefetchPending = false;
 let lastPrefetchIndex = -1;
 let lastQueueStartMode = 'first-visible';
+let lastExtractionMessages = 0;
+let lastPlannedSegments = 0;
+let lastObservedBatch = 0;
 
 const queue = new PlaybackQueue(onQueueChange);
 
@@ -234,6 +238,8 @@ function buildQueue() {
   const messages = extractTelegramBubbles(renderedBubbles());
   const segments = planSpeech(messages, speechPlanOptions());
   lastBuiltSegments = segments;
+  lastExtractionMessages = messages.length;
+  lastPlannedSegments = segments.length;
   renderVoiceSettings();
 
   const chatId = messages[0]?.chatId ?? segments[0]?.chatId ?? null;
@@ -277,34 +283,50 @@ function buildQueue() {
 
 function diagnosticsSnapshot() {
   const tts = ttsBackend.diagnostics(player);
+  const currentChatId = queue.current?.chatId ?? null;
 
-  return Object.freeze({
+  return createPrivacySafeDiagnostics({
     version: VERSION,
-    queue: Object.freeze({
+    userAgent: navigator.userAgent,
+    adapter: {
+      activeChatRoot: activeChatRoot() !== document,
+      visibleBubbles: renderedBubbles().length,
+      lastNormalizedMessages: lastExtractionMessages,
+      lastPlannedSegments,
+      lastObservedBatch,
+      observerActive: Boolean(messageObserver && liveFollow),
+    },
+    queue: {
       status: queue.status,
       index: queue.index,
       length: queue.length,
       currentMessageCount: queue.current?.messageIds?.length ?? 0,
-    }),
-    reader: Object.freeze({
+    },
+    reader: {
       selectedStart: Boolean(selectedMessageId),
       startMode: lastQueueStartMode,
       storedChatCursors: readCursorStore.count,
+      activeChatHasCursor: Boolean(
+        currentChatId && readCursorStore.get(currentChatId),
+      ),
       liveFollow,
-      visibleMessages: renderedBubbles().length,
-    }),
+    },
     tts,
-    voices: Object.freeze({
+    voices: {
       count: tts.voiceCount,
       overrides: Object.keys(voiceOverrides).length,
       fallbackProsody: tts.fallbackProsody,
-    }),
-    preferences: Object.freeze({ ...readerPreferences }),
-    page: Object.freeze({
+    },
+    readerPreferences,
+    page: {
       hidden: Boolean(document.hidden),
       visibilityState: document.visibilityState,
-    }),
+    },
   });
+}
+
+function diagnosticsJson() {
+  return `${JSON.stringify(diagnosticsSnapshot(), null, 2)}\n`;
 }
 
 function renderStatus() {
@@ -405,6 +427,7 @@ function makeLinkModeSelect() {
 }
 
 function handleNewMessages(messages) {
+  lastObservedBatch = messages.length;
   const forward = messages.filter(message =>
     latestQueuedTimestamp === null
     || message.timestamp === null
@@ -455,8 +478,6 @@ function playFromSelection() {
   liveFollow = true;
   startMessageObserver();
 
-  // A completed `after` cursor means everything currently visible was already
-  // consumed. Keep live-follow armed without replaying the queue from index 0.
   if (queue.status !== 'completed') player.play();
   else renderStatus();
 }
@@ -571,8 +592,8 @@ function createPanel() {
   ].join(';');
   settingsBody.append(voiceSettingsElement);
 
-  const diagnosticsButton = makeButton('Copy diagnostics', async () => {
-    const payload = JSON.stringify(diagnosticsSnapshot(), null, 2);
+  const diagnosticsButton = makeButton('Copy diagnostics JSON', async () => {
+    const payload = diagnosticsJson();
     const oldLabel = diagnosticsButton.textContent;
 
     try {
@@ -642,6 +663,7 @@ window.__voxThreadApp = {
     return readCursorStore.clear(chatId);
   },
   getDiagnostics: diagnosticsSnapshot,
+  getDiagnosticsJson: diagnosticsJson,
   get selectedMessageId() {
     return selectedMessageId;
   },
