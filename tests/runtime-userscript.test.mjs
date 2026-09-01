@@ -111,6 +111,10 @@ test('integrated userscript selects a message and starts real queue', async () =
     assert.equal(synth.spoken.length, 1);
     assert.match(synth.spoken[0].text, /Алиса/);
     assert.match(synth.spoken[0].text, /Первое сообщение/);
+    assert.deepEqual(window.__voxThreadApp.getMessageCacheStats(), {
+      chats: 1,
+      messages: 3,
+    });
 
     synth.spoken[0].onend();
     await new Promise(resolve => setTimeout(resolve, 275));
@@ -120,6 +124,20 @@ test('integrated userscript selects a message and starts real queue', async () =
     assert.match(synth.spoken[1].text, /example\.com/);
 
     window.__voxThreadApp.player.stop();
+
+    for (const bubble of window.document.querySelectorAll('.bubble[data-mid]')) {
+      bubble.remove();
+    }
+
+    const emptyBuild = window.__voxThreadApp.buildQueue();
+    assert.equal(emptyBuild.chatId, null);
+    assert.equal(emptyBuild.visibleMessages, 0);
+    assert.equal(emptyBuild.messages, 0);
+    assert.equal(window.__voxThreadApp.queue.status, 'empty');
+    assert.deepEqual(window.__voxThreadApp.getMessageCacheStats(), {
+      chats: 1,
+      messages: 3,
+    });
   } finally {
     globalThis.window = previous.window;
     globalThis.document = previous.document;
