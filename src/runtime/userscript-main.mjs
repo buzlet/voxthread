@@ -248,7 +248,7 @@ function messagesForQueue() {
     authorContext: telegramAuthorContext,
   });
   messageCache.upsert(visibleMessages);
-  const chatId = visibleMessages[0]?.chatId ?? queue.current?.chatId ?? null;
+  const chatId = visibleMessages[0]?.chatId ?? null;
   return {
     visibleMessages,
     chatId,
