@@ -24,6 +24,33 @@ test('merges adjacent messages from the same author', () => {
   assert.equal(plan[0].text, 'Сообщение 1. Сообщение 2');
 });
 
+test('does not invent a period after terminal quote bracket emoji or locale punctuation', () => {
+  const cases = [
+    ['Он сказал «готово»', 'Продолжаем', 'Он сказал «готово» Продолжаем'],
+    ['Ready)', 'Next', 'Ready) Next'],
+    ['Готово 👍', 'Дальше', 'Готово 👍 Дальше'],
+    ['終わり。', '次', '終わり。 次'],
+    ['هل انتهينا؟', 'نعم', 'هل انتهينا؟ نعم'],
+  ];
+
+  for (const [left, right, expected] of cases) {
+    const [segment] = planSpeech([
+      m('10', { text: left }),
+      m('11', { text: right }),
+    ]);
+    assert.equal(segment.text, expected);
+  }
+});
+
+test('keeps existing sentence punctuation before closing quote', () => {
+  const [segment] = planSpeech([
+    m('12', { text: 'Он спросил: «Готов?»' }),
+    m('13', { text: 'Да' }),
+  ]);
+
+  assert.equal(segment.text, 'Он спросил: «Готов?» Да');
+});
+
 test('starts a new segment when author changes', () => {
   const plan = planSpeech([
     m('1'),

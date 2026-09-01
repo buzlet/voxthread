@@ -14,12 +14,17 @@ function shouldSpeak(message) {
     && Boolean(message.text?.trim());
 }
 
+function hasTerminalBoundary(text) {
+  return /(?:[.!?…:;。！？؟؛।॥]|[)\]}>»”’"'`]|\p{Extended_Pictographic}|\p{Emoji_Modifier})$/u
+    .test(String(text).trim());
+}
+
 function joinText(left, right) {
   if (!left) return right;
   if (!right) return left;
-
-  const punctuation = /[.!?…:;]$/u.test(left);
-  return punctuation ? `${left} ${right}` : `${left}. ${right}`;
+  return hasTerminalBoundary(left)
+    ? `${left} ${right}`
+    : `${left}. ${right}`;
 }
 
 export function planSpeech(messages, options = {}) {
