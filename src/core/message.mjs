@@ -20,6 +20,7 @@ function numberOrNull(value) {
 }
 
 function nonNegativeIntegerOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
   const n = Number(value);
   return Number.isInteger(n) && n >= 0 ? n : null;
 }
