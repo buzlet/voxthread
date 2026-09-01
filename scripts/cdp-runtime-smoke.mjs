@@ -40,17 +40,24 @@ const preferencePatch = Object.fromEntries(
   }),
 );
 
+function fixtureRevision(item) {
+  if (item.type !== 'page') return -1;
+
+  try {
+    const url = new URL(item.url);
+    if (url.pathname !== `/tests/fixtures/${fixture}`) return -1;
+
+    const revision = Number(url.searchParams.get('rev'));
+    return Number.isFinite(revision) ? revision : 0;
+  } catch {
+    return -1;
+  }
+}
+
 const pages = await fetch(`${base}/json/list`).then(response => response.json());
 const page = pages
-  .filter(item => {
-    if (item.type !== 'page') return false;
-    try {
-      return new URL(item.url).pathname === `/tests/fixtures/${fixture}`;
-    } catch {
-      return false;
-    }
-  })
-  .sort((a, b) => Number(b.id) - Number(a.id))[0];
+  .filter(item => fixtureRevision(item) >= 0)
+  .sort((left, right) => fixtureRevision(right) - fixtureRevision(left))[0];
 
 if (!page) throw new Error('Telegram runtime fixture page not found');
 
@@ -87,11 +94,46 @@ async function evaluate(expression) {
   });
 
   if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || 'Runtime.evaluate failed');
+    const details = result.exceptionDetails;
+    const description = details.exception?.description
+      || details.exception?.value
+      || details.text
+      || 'Runtime.evaluate failed';
+    const location = Number.isFinite(details.lineNumber)
+      ? ` at ${details.lineNumber + 1}:${(details.columnNumber ?? 0) + 1}`
+      : '';
+    throw new Error(`${description}${location}`);
   }
 
   return result.result?.value;
 }
+
+async function waitForFixtureReady() {
+  let state = null;
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    state = await evaluate(`(() => ({
+      readyState: document.readyState,
+      body: Boolean(document.body),
+      path: location.pathname,
+      bubbleCount: document.querySelectorAll('.bubble[data-mid]').length,
+    }))()`);
+
+    if (
+      state?.readyState !== 'loading'
+      && state?.body
+      && state?.path === `/tests/fixtures/${fixture}`
+    ) {
+      return state;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  throw new Error(`Telegram runtime fixture did not become ready: ${JSON.stringify(state)}`);
+}
+
+await waitForFixtureReady();
 
 if (inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
   throw new Error('VoxThread runtime is not injected');
@@ -100,7 +142,17 @@ if (inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
 if (!inspectOnly && !await evaluate('Boolean(window.__voxThreadApp)')) {
   const bundle = await fs.readFile('dist/voxthread-dev.js', 'utf8');
   await evaluate(bundle);
-  await new Promise(resolve => setTimeout(resolve, 150));
+
+  let injected = false;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await evaluate('Boolean(window.__voxThreadApp && document.querySelector("#voxthread-reader"))')) {
+      injected = true;
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  if (!injected) throw new Error('VoxThread runtime did not finish injection');
 }
 
 if (Object.keys(preferencePatch).length) {
